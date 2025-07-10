@@ -33,25 +33,18 @@ public class UserService implements UserDetailsService {
                 .build();
     }
 
-    public User createUser(String username, String email, String password) {
+    public User createUser(String username, String password) {
         if (userRepository.existsByUsername(username)) {
             throw new RuntimeException("Username is already taken!");
         }
         
-        if (userRepository.existsByEmail(email)) {
-            throw new RuntimeException("Email is already in use!");
-        }
 
-        User user = new User(username, email, passwordEncoder.encode(password));
+        User user = new User(username, passwordEncoder.encode(password));
         return userRepository.save(user);
     }
 
     public Optional<User> findByUsername(String username) {
         return userRepository.findByUsername(username);
-    }
-
-    public Optional<User> findByEmail(String email) {
-        return userRepository.findByEmail(email);
     }
 
     public List<User> findAllUsers() {

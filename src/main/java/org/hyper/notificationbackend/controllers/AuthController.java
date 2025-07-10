@@ -57,7 +57,6 @@ public class AuthController {
         try {
             User user = userService.createUser(
                     signUpRequest.getUsername(),
-                    signUpRequest.getEmail(),
                     signUpRequest.getPassword()
             );
 
@@ -94,7 +93,6 @@ public class AuthController {
 
     public static class SignupRequest {
         private String username;
-        private String email;
         private String password;
 
         public String getUsername() {
@@ -103,14 +101,6 @@ public class AuthController {
 
         public void setUsername(String username) {
             this.username = username;
-        }
-
-        public String getEmail() {
-            return email;
-        }
-
-        public void setEmail(String email) {
-            this.email = email;
         }
 
         public String getPassword() {

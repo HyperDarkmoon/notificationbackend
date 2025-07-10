@@ -1,7 +1,6 @@
 package org.hyper.notificationbackend.models;
 
 import jakarta.persistence.*;
-import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
@@ -18,12 +17,6 @@ public class User {
     private String username;
 
     @NotBlank
-    @Size(max = 50)
-    @Email
-    @Column(unique = true)
-    private String email;
-
-    @NotBlank
     @Size(max = 120)
     private String password;
 
@@ -37,9 +30,8 @@ public class User {
     // Constructors
     public User() {}
 
-    public User(String username, String email, String password) {
+    public User(String username, String password) {
         this.username = username;
-        this.email = email;
         this.password = password;
     }
 
@@ -60,13 +52,6 @@ public class User {
         this.username = username;
     }
 
-    public String getEmail() {
-        return email;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
-    }
 
     public String getPassword() {
         return password;
