@@ -32,14 +32,22 @@ public class ContentScheduleService {
         return contentScheduleRepository.findById(id);
     }
     
-    // Get currently active schedules
+    // Get currently active schedules (includes both time-based and immediate schedules)
     public List<ContentSchedule> getCurrentlyActiveSchedules() {
-        return contentScheduleRepository.findCurrentlyActive(LocalDateTime.now());
+        List<ContentSchedule> activeSchedules = contentScheduleRepository.findCurrentlyActive(LocalDateTime.now());
+        List<ContentSchedule> immediateSchedules = contentScheduleRepository.findImmediateSchedules();
+        activeSchedules.addAll(immediateSchedules);
+        return activeSchedules;
     }
     
     // Get upcoming schedules
     public List<ContentSchedule> getUpcomingSchedules() {
         return contentScheduleRepository.findUpcoming(LocalDateTime.now());
+    }
+    
+    // Get immediate/indefinite schedules
+    public List<ContentSchedule> getImmediateSchedules() {
+        return contentScheduleRepository.findImmediateSchedules();
     }
     
     // Get schedules for a specific TV
@@ -82,12 +90,16 @@ public class ContentScheduleService {
     
     // Validate schedule data
     private void validateSchedule(ContentSchedule schedule) {
-        if (schedule.getStartTime() == null || schedule.getEndTime() == null) {
-            throw new IllegalArgumentException("Start time and end time must be provided");
+        // Only validate time relationship if both start and end times are provided
+        if (schedule.getStartTime() != null && schedule.getEndTime() != null) {
+            if (schedule.getStartTime().isAfter(schedule.getEndTime())) {
+                throw new IllegalArgumentException("Start time must be before end time");
+            }
         }
-        
-        if (schedule.getStartTime().isAfter(schedule.getEndTime())) {
-            throw new IllegalArgumentException("Start time must be before end time");
+        // If only one time is provided, throw an error
+        else if ((schedule.getStartTime() != null && schedule.getEndTime() == null) ||
+                 (schedule.getStartTime() == null && schedule.getEndTime() != null)) {
+            throw new IllegalArgumentException("Both start time and end time must be provided, or both must be null for immediate/indefinite content");
         }
         
         if (schedule.getContentType() == null) {

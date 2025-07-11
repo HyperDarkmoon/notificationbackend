@@ -12,7 +12,6 @@ import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/content")
-@CrossOrigin(origins = "*", maxAge = 3600)
 public class ContentScheduleController {
 
     @Autowired
@@ -53,6 +52,12 @@ public class ContentScheduleController {
     @GetMapping("/upcoming")
     public ResponseEntity<List<ContentSchedule>> getUpcomingSchedules() {
         return ResponseEntity.ok(contentScheduleService.getUpcomingSchedules());
+    }
+    
+    // Get immediate/indefinite schedules
+    @GetMapping("/immediate")
+    public ResponseEntity<List<ContentSchedule>> getImmediateSchedules() {
+        return ResponseEntity.ok(contentScheduleService.getImmediateSchedules());
     }
     
     // Get schedules for a specific TV

@@ -19,9 +19,17 @@ public interface ContentScheduleRepository extends JpaRepository<ContentSchedule
     @Query("SELECT c FROM ContentSchedule c WHERE c.active = true AND c.startTime > ?1 ORDER BY c.startTime ASC")
     List<ContentSchedule> findUpcoming(LocalDateTime currentTime);
     
-    // Find schedules for a specific TV
+    // Find immediate/indefinite schedules (no start time or end time provided, show immediately and indefinitely)
+    @Query("SELECT c FROM ContentSchedule c WHERE c.active = true AND c.startTime IS NULL AND c.endTime IS NULL")
+    List<ContentSchedule> findImmediateSchedules();
+
+    // Find schedules for a specific TV (includes immediate schedules)
     @Query("SELECT c FROM ContentSchedule c JOIN c.targetTVs t WHERE t = ?1 AND c.active = true")
     List<ContentSchedule> findByTV(TVEnum tv);
+    
+    // Find immediate schedules for a specific TV
+    @Query("SELECT c FROM ContentSchedule c JOIN c.targetTVs t WHERE t = ?1 AND c.active = true AND c.startTime IS NULL AND c.endTime IS NULL")
+    List<ContentSchedule> findImmediateForTV(TVEnum tv);
     
     // Find upcoming schedules for a specific TV
     @Query("SELECT c FROM ContentSchedule c JOIN c.targetTVs t WHERE t = ?1 AND c.active = true AND c.startTime > ?2 ORDER BY c.startTime ASC")

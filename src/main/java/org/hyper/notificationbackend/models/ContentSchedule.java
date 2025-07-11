@@ -27,7 +27,7 @@ public class ContentSchedule {
     // For storing multiple image URLs (up to 4)
     @ElementCollection
     @CollectionTable(name = "content_images", joinColumns = @JoinColumn(name = "schedule_id"))
-    @Column(name = "image_url", columnDefinition = "TEXT")
+    @Column(name = "image_url", columnDefinition = "LONGTEXT")
     private List<String> imageUrls = new ArrayList<>();
     
     private LocalDateTime startTime;
