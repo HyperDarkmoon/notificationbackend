@@ -73,6 +73,7 @@ public class ContentScheduleService {
             existingSchedule.setContentType(updatedSchedule.getContentType());
             existingSchedule.setContent(updatedSchedule.getContent());
             existingSchedule.setImageUrls(updatedSchedule.getImageUrls());
+            existingSchedule.setVideoUrls(updatedSchedule.getVideoUrls());
             existingSchedule.setStartTime(updatedSchedule.getStartTime());
             existingSchedule.setEndTime(updatedSchedule.getEndTime());
             existingSchedule.setActive(updatedSchedule.isActive());
@@ -116,6 +117,9 @@ public class ContentScheduleService {
         } else if (schedule.getContentType() == ContentSchedule.ContentType.IMAGE_QUAD && 
                   (schedule.getImageUrls() == null || schedule.getImageUrls().size() != 4)) {
             throw new IllegalArgumentException("Quad image content type requires exactly four image URLs");
+        } else if (schedule.getContentType() == ContentSchedule.ContentType.VIDEO && 
+                  (schedule.getVideoUrls() == null || schedule.getVideoUrls().size() != 1)) {
+            throw new IllegalArgumentException("Video content type requires exactly one video URL");
         } else if (schedule.getContentType() == ContentSchedule.ContentType.EMBED && 
                   (schedule.getContent() == null || schedule.getContent().isEmpty())) {
             throw new IllegalArgumentException("Embed content type requires embed content");

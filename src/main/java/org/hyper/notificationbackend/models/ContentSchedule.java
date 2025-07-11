@@ -18,10 +18,11 @@ public class ContentSchedule {
     private String description;
     
     @Enumerated(EnumType.STRING)
+    @Column(name = "content_type", length = 50)
     private ContentType contentType;
     
     // For storing image URLs or embed HTML
-    @Column(columnDefinition = "TEXT")
+    @Column(columnDefinition = "LONGTEXT")
     private String content;
     
     // For storing multiple image URLs (up to 4)
@@ -29,6 +30,12 @@ public class ContentSchedule {
     @CollectionTable(name = "content_images", joinColumns = @JoinColumn(name = "schedule_id"))
     @Column(name = "image_url", columnDefinition = "LONGTEXT")
     private List<String> imageUrls = new ArrayList<>();
+    
+    // For storing video URLs
+    @ElementCollection
+    @CollectionTable(name = "content_videos", joinColumns = @JoinColumn(name = "schedule_id"))
+    @Column(name = "video_url", columnDefinition = "LONGTEXT")
+    private List<String> videoUrls = new ArrayList<>();
     
     private LocalDateTime startTime;
     private LocalDateTime endTime;
@@ -45,6 +52,7 @@ public class ContentSchedule {
         IMAGE_SINGLE,   // Single image
         IMAGE_DUAL,     // Two images
         IMAGE_QUAD,     // Four images
+        VIDEO,          // Video content
         EMBED,          // Embedded content (iframe, video, etc.)
         TEXT            // Text content
     }
@@ -110,6 +118,18 @@ public class ContentSchedule {
     
     public void addImageUrl(String imageUrl) {
         this.imageUrls.add(imageUrl);
+    }
+    
+    public List<String> getVideoUrls() {
+        return videoUrls;
+    }
+    
+    public void setVideoUrls(List<String> videoUrls) {
+        this.videoUrls = videoUrls;
+    }
+    
+    public void addVideoUrl(String videoUrl) {
+        this.videoUrls.add(videoUrl);
     }
     
     public LocalDateTime getStartTime() {

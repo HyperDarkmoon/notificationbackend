@@ -9,7 +9,7 @@ You can find the frontend application for this backend at [notificationfrontend]
 
 - **Content Scheduling**: Create, manage, and schedule content across multiple TV displays
 - **Multi-TV Support**: Target specific TVs or broadcast to all displays
-- **Multiple Content Types**: Support for single/dual/quad images, embedded content, and text
+- **Multiple Content Types**: Support for single/dual/quad images, video content, embedded content, and text
 - **User Authentication**: Secure login/signup with role-based access
 - **Real-time Scheduling**: Active, upcoming, and immediate content scheduling
 - **RESTful API**: Comprehensive REST endpoints for all operations
@@ -120,6 +120,7 @@ GET /api/tv/{name}     # Get specific TV information
 ### Dashboard
 ```
 GET /api/dashboard     # Get dashboard data with TV and schedule information
+GET /api/dashboard/status  # Get current system status
 ```
 
 ## 📝 Content Types
@@ -129,6 +130,7 @@ The system supports multiple content types:
 - **IMAGE_SINGLE**: Single image display
 - **IMAGE_DUAL**: Two-image layout
 - **IMAGE_QUAD**: Four-image grid layout
+- **VIDEO**: Video content (MP4, WebM, OGG formats)
 - **EMBED**: Embedded content (iframes, videos)
 - **TEXT**: Text-based content
 
@@ -168,6 +170,7 @@ Content can be targeted to specific TVs:
 - **users**: User authentication and profiles
 - **content_schedules**: Content scheduling information
 - **content_images**: Image URLs for content (up to 4 per schedule)
+- **content_videos**: Video URLs for content
 - **content_tv_mapping**: TV targeting relationships
 
 ## 🧪 Testing
@@ -236,6 +239,39 @@ POST /api/content
   "startTime": "2025-07-11T08:00:00",
   "endTime": "2025-07-11T09:00:00",
   "targetTVs": ["TV1", "TV2"],
+  "active": true
+}
+```
+
+### Creating Video Content
+```json
+POST /api/content
+{
+  "title": "Company Presentation",
+  "description": "Quarterly company presentation video",
+  "contentType": "VIDEO",
+  "videoUrls": ["https://example.com/presentation.mp4"],
+  "startTime": "2025-07-11T14:00:00",
+  "endTime": "2025-07-11T15:00:00",
+  "targetTVs": ["TV1", "TV2", "TV3", "TV4"],
+  "active": true
+}
+```
+
+### Creating Multi-Image Content
+```json
+POST /api/content
+{
+  "title": "Product Showcase",
+  "description": "Display multiple product images",
+  "contentType": "IMAGE_QUAD",
+  "imageUrls": [
+    "https://example.com/product1.jpg",
+    "https://example.com/product2.jpg",
+    "https://example.com/product3.jpg",
+    "https://example.com/product4.jpg"
+  ],
+  "targetTVs": ["TV1"],
   "active": true
 }
 ```
