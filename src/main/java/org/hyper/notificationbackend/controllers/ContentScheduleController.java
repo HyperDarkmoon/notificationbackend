@@ -36,7 +36,7 @@ public class ContentScheduleController {
     
     // Get content schedule by ID
     @GetMapping("/{id}")
-    public ResponseEntity<?> getContentScheduleById(@PathVariable Long id) {
+    public ResponseEntity<?> getContentScheduleById(@PathVariable("id") Long id) {
         Optional<ContentSchedule> schedule = contentScheduleService.getScheduleById(id);
         return schedule.map(ResponseEntity::ok)
                 .orElse(ResponseEntity.notFound().build());
@@ -62,7 +62,7 @@ public class ContentScheduleController {
     
     // Get schedules for a specific TV
     @GetMapping("/tv/{tvName}")
-    public ResponseEntity<?> getSchedulesForTV(@PathVariable String tvName) {
+    public ResponseEntity<?> getSchedulesForTV(@PathVariable("tvName") String tvName) {
         try {
             TVEnum tv = TVEnum.valueOf(tvName);
             return ResponseEntity.ok(contentScheduleService.getSchedulesForTV(tv));
@@ -73,7 +73,7 @@ public class ContentScheduleController {
     
     // Get upcoming schedules for a specific TV
     @GetMapping("/tv/{tvName}/upcoming")
-    public ResponseEntity<?> getUpcomingSchedulesForTV(@PathVariable String tvName) {
+    public ResponseEntity<?> getUpcomingSchedulesForTV(@PathVariable("tvName") String tvName) {
         try {
             TVEnum tv = TVEnum.valueOf(tvName);
             return ResponseEntity.ok(contentScheduleService.getUpcomingSchedulesForTV(tv));
@@ -84,7 +84,7 @@ public class ContentScheduleController {
     
     // Update a content schedule
     @PutMapping("/{id}")
-    public ResponseEntity<?> updateContentSchedule(@PathVariable Long id, @RequestBody ContentSchedule contentSchedule) {
+    public ResponseEntity<?> updateContentSchedule(@PathVariable("id") Long id, @RequestBody ContentSchedule contentSchedule) {
         try {
             ContentSchedule updatedSchedule = contentScheduleService.updateSchedule(id, contentSchedule);
             return ResponseEntity.ok(updatedSchedule);
@@ -95,7 +95,7 @@ public class ContentScheduleController {
     
     // Delete a content schedule
     @DeleteMapping("/{id}")
-    public ResponseEntity<?> deleteContentSchedule(@PathVariable Long id) {
+    public ResponseEntity<?> deleteContentSchedule(@PathVariable("id") Long id) {
         try {
             contentScheduleService.deleteSchedule(id);
             return ResponseEntity.ok("Content schedule deleted successfully");

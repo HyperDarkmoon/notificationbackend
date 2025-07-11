@@ -13,6 +13,11 @@ java {
     }
 }
 
+// Configure compiler to preserve parameter names
+tasks.withType(JavaCompile) {
+    options.compilerArgs += ['-parameters']
+}
+
 repositories {
     mavenCentral()
 }
