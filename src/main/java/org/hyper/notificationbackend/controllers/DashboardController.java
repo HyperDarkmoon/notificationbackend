@@ -1,8 +1,7 @@
-package org.hyper.notificationbackend.controllers;
+/*package org.hyper.notificationbackend.controllers;
 
-import org.hyper.notificationbackend.models.TV;
 import org.hyper.notificationbackend.services.ContentScheduleService;
-import org.hyper.notificationbackend.services.TVService;
+import org.hyper.notificationbackend.services.TVEnumService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -16,7 +15,7 @@ import java.util.*;
 public class DashboardController {
 
     @Autowired
-    private TVService tvService;
+    private TVEnumService tvService;
     
     @Autowired
     private ContentScheduleService contentScheduleService;
@@ -26,9 +25,9 @@ public class DashboardController {
     public ResponseEntity<?> getDashboardData() {
         try {
             List<Map<String, Object>> dashboardData = new ArrayList<>();
-            List<TV> tvs = tvService.getAllTVs();
+            List<TVEnum> tvs = tvService.getAllTVs();
             
-            for (TV tv : tvs) {
+            for (TVEnum tv : tvs) {
                 Map<String, Object> tvData = new HashMap<>();
                 tvData.put("tv", tv);
                 tvData.put("upcomingSchedules", contentScheduleService.getUpcomingSchedulesForTV(tv.getId()));
@@ -50,7 +49,6 @@ public class DashboardController {
             statusData.put("currentTime", LocalDateTime.now());
             statusData.put("activeSchedules", contentScheduleService.getCurrentlyActiveSchedules().size());
             statusData.put("upcomingSchedules", contentScheduleService.getUpcomingSchedules().size());
-            statusData.put("activeTVs", tvService.getActiveTVs().size());
             statusData.put("totalTVs", tvService.getAllTVs().size());
             
             return ResponseEntity.ok(statusData);
@@ -59,3 +57,4 @@ public class DashboardController {
         }
     }
 }
+*/
