@@ -109,6 +109,7 @@ GET    /api/content/upcoming         # Get upcoming schedules
 GET    /api/content/immediate        # Get immediate/indefinite schedules
 GET    /api/content/tv/{tvName}      # Get schedules for specific TV
 GET    /api/content/tv/{tvName}/upcoming  # Get upcoming schedules for TV
+POST   /api/content/restore-disabled # Manually restore temporarily disabled content
 ```
 
 ### TV Management
@@ -155,6 +156,23 @@ Content can be targeted to specific TVs:
 - Target multiple TVs simultaneously
 - Support for up to 4 images per schedule
 - Long text content support with LONGTEXT storage
+- **Automatic Content Override**: New content automatically disables existing content for the same TV
+- **Temporary Override**: Timed content temporarily disables old content and restores it when expired
+- **Content Restoration**: Automatic cleanup service restores temporarily disabled content
+
+## 🔄 Content Override System
+
+The system includes intelligent content override logic:
+
+### Override Rules
+1. **Immediate content** (no start/end time) permanently overrides all existing content for target TVs
+2. **Timed content** temporarily overrides existing content and restores it when the time period expires
+3. **Content conflicts** are resolved automatically based on timing and priority
+
+### Automatic Restoration
+- A background service runs every minute to check for expired timed content
+- When timed content expires, previously disabled content is automatically restored
+- Manual restoration can be triggered via the `/api/content/restore-disabled` endpoint
 
 ## 🔐 Security
 

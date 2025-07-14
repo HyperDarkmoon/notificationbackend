@@ -103,4 +103,15 @@ public class ContentScheduleController {
             return ResponseEntity.badRequest().body("Error: " + e.getMessage());
         }
     }
+    
+    // Manual trigger to restore temporarily disabled content
+    @PostMapping("/restore-disabled")
+    public ResponseEntity<?> restoreDisabledContent() {
+        try {
+            contentScheduleService.restoreTemporarilyDisabledContent();
+            return ResponseEntity.ok("Temporarily disabled content restored successfully");
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+        }
+    }
 }

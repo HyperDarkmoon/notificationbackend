@@ -19,6 +19,10 @@ public class ContentScheduleService {
     // Create a new content schedule
     public ContentSchedule createSchedule(ContentSchedule contentSchedule) {
         validateSchedule(contentSchedule);
+        
+        // Handle content override logic
+        handleContentOverride(contentSchedule);
+        
         return contentScheduleRepository.save(contentSchedule);
     }
     
@@ -87,6 +91,109 @@ public class ContentScheduleService {
     // Delete a content schedule
     public void deleteSchedule(Long id) {
         contentScheduleRepository.deleteById(id);
+    }
+    
+    // Handle content override logic for new schedules
+    private void handleContentOverride(ContentSchedule newSchedule) {
+        // For each target TV, handle existing content
+        for (TVEnum tv : newSchedule.getTargetTVs()) {
+            handleTVContentOverride(tv, newSchedule);
+        }
+    }
+    
+    // Handle content override for a specific TV
+    private void handleTVContentOverride(TVEnum tv, ContentSchedule newSchedule) {
+        // Get all active schedules for this TV
+        List<ContentSchedule> existingSchedules = contentScheduleRepository.findByTV(tv);
+        
+        for (ContentSchedule existing : existingSchedules) {
+            if (existing.isActive()) {
+                // Check if the new schedule should override this existing one
+                if (shouldOverride(existing, newSchedule)) {
+                    // If new schedule is timed, temporarily disable the old one
+                    if (newSchedule.getStartTime() != null && newSchedule.getEndTime() != null) {
+                        // Mark as temporarily disabled - we'll use a special marker
+                        // The old content will be re-enabled when the new timed content expires
+                        existing.setActive(false);
+                        // Store the original state info in description for restoration
+                        if (!existing.getDescription().contains("[TEMP_DISABLED_BY_")) {
+                            existing.setDescription(existing.getDescription() + 
+                                " [TEMP_DISABLED_BY_" + newSchedule.hashCode() + "]");
+                        }
+                    } else {
+                        // If new schedule is permanent/immediate, permanently disable old content
+                        existing.setActive(false);
+                    }
+                    contentScheduleRepository.save(existing);
+                }
+            }
+        }
+    }
+    
+    // Determine if new schedule should override existing one
+    private boolean shouldOverride(ContentSchedule existing, ContentSchedule newSchedule) {
+        // Override rules:
+        // 1. New immediate content overrides everything
+        // 2. New timed content overrides immediate content temporarily
+        // 3. New timed content overrides other timed content if it starts sooner or overlaps
+        
+        boolean newIsImmediate = (newSchedule.getStartTime() == null && newSchedule.getEndTime() == null);
+        boolean existingIsImmediate = (existing.getStartTime() == null && existing.getEndTime() == null);
+        
+        // Case 1: New immediate content always overrides
+        if (newIsImmediate) {
+            return true;
+        }
+        
+        // Case 2: New timed content overrides immediate content temporarily
+        if (existingIsImmediate && !newIsImmediate) {
+            return true;
+        }
+        
+        // Case 3: Both are timed - check for overlap or if new starts sooner
+        if (!existingIsImmediate && !newIsImmediate) {
+            LocalDateTime newStart = newSchedule.getStartTime();
+            LocalDateTime newEnd = newSchedule.getEndTime();
+            LocalDateTime existingStart = existing.getStartTime();
+            LocalDateTime existingEnd = existing.getEndTime();
+            
+            // Check for time overlap
+            return (newStart.isBefore(existingEnd) && newEnd.isAfter(existingStart));
+        }
+        
+        return false;
+    }
+    
+    // Method to restore temporarily disabled content (called when timed content expires)
+    public void restoreTemporarilyDisabledContent() {
+        List<ContentSchedule> allSchedules = contentScheduleRepository.findAll();
+        LocalDateTime now = LocalDateTime.now();
+        
+        for (ContentSchedule schedule : allSchedules) {
+            // Check if this is an expired timed schedule
+            if (schedule.isActive() && schedule.getStartTime() != null && schedule.getEndTime() != null) {
+                if (now.isAfter(schedule.getEndTime())) {
+                    // This timed content has expired, restore any content it disabled
+                    String disabledMarker = "[TEMP_DISABLED_BY_" + schedule.hashCode() + "]";
+                    
+                    // Find content that was temporarily disabled by this schedule
+                    List<ContentSchedule> disabledContent = allSchedules.stream()
+                        .filter(s -> s.getDescription() != null && s.getDescription().contains(disabledMarker))
+                        .toList();
+                    
+                    for (ContentSchedule disabled : disabledContent) {
+                        // Remove the temporary disable marker
+                        disabled.setDescription(disabled.getDescription().replace(" " + disabledMarker, ""));
+                        disabled.setActive(true);
+                        contentScheduleRepository.save(disabled);
+                    }
+                    
+                    // Deactivate the expired schedule
+                    schedule.setActive(false);
+                    contentScheduleRepository.save(schedule);
+                }
+            }
+        }
     }
     
     // Validate schedule data

@@ -59,6 +59,7 @@ public class WebSecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/content/active").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/content/upcoming").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/content").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/content/restore-disabled").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.PUT, "/api/content/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/content/**").hasRole("ADMIN")
                         .requestMatchers("/api/content/**").hasRole("ADMIN")
