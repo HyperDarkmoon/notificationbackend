@@ -34,4 +34,15 @@ public interface ContentScheduleRepository extends JpaRepository<ContentSchedule
     // Find upcoming schedules for a specific TV
     @Query("SELECT c FROM ContentSchedule c JOIN c.targetTVs t WHERE t = ?1 AND c.active = true AND c.startTime > ?2 ORDER BY c.startTime ASC")
     List<ContentSchedule> findUpcomingForTV(TVEnum tv, LocalDateTime currentTime);
+    
+    // Find the highest priority active content for a specific TV at current time
+    @Query("SELECT c FROM ContentSchedule c JOIN c.targetTVs t WHERE t = ?1 AND c.active = true AND " +
+           "((c.startTime IS NULL AND c.endTime IS NULL) OR " +
+           "(c.startTime <= ?2 AND c.endTime >= ?2)) " +
+           "ORDER BY " +
+           "CASE WHEN c.startTime IS NOT NULL AND c.endTime IS NOT NULL THEN 1 " +
+           "     WHEN c.startTime IS NULL AND c.endTime IS NULL THEN 2 " +
+           "     ELSE 3 END ASC, " +
+           "c.startTime ASC")
+    List<ContentSchedule> findActiveContentForTVPrioritized(TVEnum tv, LocalDateTime currentTime);
 }

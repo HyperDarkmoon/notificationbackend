@@ -71,10 +71,10 @@ spring.datasource.username=your_username
 spring.datasource.password=your_password
 ```
 
-### 4. Run Database Migration (if needed)
-If you encounter image URL column length issues, run the provided migration:
+### 4. Run Database Migration (required for video support)
+If you encounter issues with content types or need video support, run the provided migration:
 ```sql
--- Execute the SQL commands in database_migration.sql
+-- Execute the SQL commands in video_support_migration.sql
 ```
 
 ### 5. Build and Run
@@ -151,11 +151,44 @@ Content can be targeted to specific TVs:
 3. **Active**: Currently displaying content
 4. **Upcoming**: Scheduled future content
 
+### Content Priority & Override Logic
+
+The system implements intelligent content prioritization:
+
+#### **Immediate Content (No time constraints)**
+- Displays immediately and continues indefinitely
+- Overrides all existing content permanently
+- Best for: Default content, permanent announcements
+
+#### **Timed Content (Start and end times specified)**
+- Displays only during specified time window
+- Temporarily overrides immediate content during its time window
+- Automatically restores previous content when time expires
+- Best for: Scheduled announcements, time-sensitive content
+
+#### **Example Scenario:**
+1. TV1 displays Image A (immediate content)
+2. Admin schedules Image B for 11:25-11:26 (timed content)
+3. **Result:**
+   - 11:24: TV1 shows Image A
+   - 11:25: TV1 switches to Image B
+   - 11:26: TV1 automatically returns to Image A
+
+### Automatic Content Management
+- **Scheduled cleanup**: Expired content automatically deactivated every 60 seconds
+- **Smart restoration**: Previously displaced content automatically restored
+- **Priority handling**: Real-time content prioritization based on timing
+
 ### Schedule Management
 - Create schedules with flexible timing
 - Target multiple TVs simultaneously
 - Support for up to 4 images per schedule
+- Video content support with automatic format detection
 - Long text content support with LONGTEXT storage
+- **Smart Content Override**: New content intelligently overrides existing content
+  - **Immediate content** overrides everything instantly
+  - **Timed content** temporarily overrides immediate content during its time window
+  - **Automatic restoration** of previous content when timed content expires
 - **Automatic Content Override**: New content automatically disables existing content for the same TV
 - **Temporary Override**: Timed content temporarily disables old content and restores it when expired
 - **Content Restoration**: Automatic cleanup service restores temporarily disabled content

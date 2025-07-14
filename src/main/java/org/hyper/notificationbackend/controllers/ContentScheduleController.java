@@ -7,7 +7,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @RestController
@@ -104,14 +107,66 @@ public class ContentScheduleController {
         }
     }
     
-    // Manual trigger to restore temporarily disabled content
-    @PostMapping("/restore-disabled")
-    public ResponseEntity<?> restoreDisabledContent() {
+    // Manual trigger to clean up expired content
+    @PostMapping("/cleanup-expired")
+    public ResponseEntity<?> cleanupExpiredContent() {
         try {
             contentScheduleService.restoreTemporarilyDisabledContent();
-            return ResponseEntity.ok("Temporarily disabled content restored successfully");
+            return ResponseEntity.ok("Expired content cleaned up successfully");
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+        }
+    }
+    
+    // Debug endpoint to check TV content status
+    @GetMapping("/debug/tv/{tvName}")
+    public ResponseEntity<?> debugTVContent(@PathVariable("tvName") String tvName) {
+        try {
+            TVEnum tv = TVEnum.valueOf(tvName);
+            LocalDateTime now = LocalDateTime.now();
+            
+            // Get all schedules for this TV
+            List<ContentSchedule> allSchedules = contentScheduleService.getAllSchedules().stream()
+                .filter(s -> s.getTargetTVs().contains(tv))
+                .toList();
+            
+            Map<String, Object> debugInfo = new HashMap<>();
+            debugInfo.put("currentTime", now);
+            debugInfo.put("totalSchedulesForTV", allSchedules.size());
+            debugInfo.put("activeSchedules", allSchedules.stream().filter(s -> s.isActive()).count());
+            debugInfo.put("timedSchedules", allSchedules.stream()
+                .filter(s -> s.isActive() && s.getStartTime() != null && s.getEndTime() != null)
+                .count());
+            debugInfo.put("immediateSchedules", allSchedules.stream()
+                .filter(s -> s.isActive() && s.getStartTime() == null && s.getEndTime() == null)
+                .count());
+            
+            // Check current content
+            List<ContentSchedule> currentContent = contentScheduleService.getSchedulesForTV(tv);
+            debugInfo.put("currentContentCount", currentContent.size());
+            if (!currentContent.isEmpty()) {
+                debugInfo.put("currentContentTitle", currentContent.get(0).getTitle());
+                debugInfo.put("currentContentType", currentContent.get(0).getContentType());
+            }
+            
+            // List all schedules with details
+            List<Map<String, Object>> scheduleDetails = allSchedules.stream()
+                .map(s -> {
+                    Map<String, Object> details = new HashMap<>();
+                    details.put("id", s.getId());
+                    details.put("title", s.getTitle());
+                    details.put("active", s.isActive());
+                    details.put("startTime", s.getStartTime());
+                    details.put("endTime", s.getEndTime());
+                    details.put("contentType", s.getContentType());
+                    return details;
+                })
+                .toList();
+            debugInfo.put("allSchedules", scheduleDetails);
+            
+            return ResponseEntity.ok(debugInfo);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body("Invalid TV name: " + tvName);
         }
     }
 }
