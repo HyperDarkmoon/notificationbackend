@@ -118,6 +118,121 @@ public class ContentScheduleController {
         }
     }
     
+    // Get current content for a specific TV with image rotation support
+    @GetMapping("/tv/{tvName}/current")
+    public ResponseEntity<?> getCurrentContentForTV(@PathVariable("tvName") String tvName,
+                                                    @RequestParam(value = "imageIndex", defaultValue = "0") int imageIndex) {
+        try {
+            TVEnum tv = TVEnum.valueOf(tvName);
+            List<ContentSchedule> currentContent = contentScheduleService.getSchedulesForTV(tv);
+            
+            if (currentContent.isEmpty()) {
+                return ResponseEntity.ok(Map.of("message", "No active content for this TV"));
+            }
+            
+            ContentSchedule schedule = currentContent.get(0); // Get the highest priority content
+            Map<String, Object> response = new HashMap<>();
+            response.put("id", schedule.getId());
+            response.put("title", schedule.getTitle());
+            response.put("contentType", schedule.getContentType());
+            response.put("content", schedule.getContent());
+            response.put("isTimedContent", schedule.getStartTime() != null && schedule.getEndTime() != null);
+            response.put("startTime", schedule.getStartTime());
+            response.put("endTime", schedule.getEndTime());
+            
+            // Handle image rotation for image content types
+            if (schedule.getContentType().toString().startsWith("IMAGE_") && 
+                schedule.getImageUrls() != null && !schedule.getImageUrls().isEmpty()) {
+                
+                List<String> imageUrls = schedule.getImageUrls();
+                int totalImages = imageUrls.size();
+                
+                // For different content types, determine how many images to show at once
+                int imagesPerDisplay = switch (schedule.getContentType()) {
+                    case IMAGE_SINGLE -> 1;
+                    case IMAGE_DUAL -> 2;
+                    case IMAGE_QUAD -> 4;
+                    default -> 1;
+                };
+                
+                // Calculate which images to show based on the current rotation index
+                int startIndex = (imageIndex * imagesPerDisplay) % totalImages;
+                List<String> currentImages = new java.util.ArrayList<>();
+                
+                for (int i = 0; i < imagesPerDisplay; i++) {
+                    int currentImageIndex = (startIndex + i) % totalImages;
+                    currentImages.add(imageUrls.get(currentImageIndex));
+                }
+                
+                response.put("imageUrls", currentImages);
+                response.put("totalImages", totalImages);
+                response.put("currentRotationIndex", imageIndex);
+                response.put("imagesPerDisplay", imagesPerDisplay);
+                response.put("totalRotations", (int) Math.ceil((double) totalImages / imagesPerDisplay));
+            } else {
+                response.put("imageUrls", schedule.getImageUrls());
+            }
+            
+            // Add video URLs if present
+            if (schedule.getVideoUrls() != null && !schedule.getVideoUrls().isEmpty()) {
+                response.put("videoUrls", schedule.getVideoUrls());
+            }
+            
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body("Invalid TV name: " + tvName);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+        }
+    }
+
+    // Get rotation information for content with multiple images
+    @GetMapping("/tv/{tvName}/rotation-info")
+    public ResponseEntity<?> getRotationInfo(@PathVariable("tvName") String tvName) {
+        try {
+            TVEnum tv = TVEnum.valueOf(tvName);
+            List<ContentSchedule> currentContent = contentScheduleService.getSchedulesForTV(tv);
+            
+            if (currentContent.isEmpty()) {
+                return ResponseEntity.ok(Map.of("hasRotation", false, "message", "No active content"));
+            }
+            
+            ContentSchedule schedule = currentContent.get(0);
+            Map<String, Object> rotationInfo = new HashMap<>();
+            
+            if (schedule.getContentType().toString().startsWith("IMAGE_") && 
+                schedule.getImageUrls() != null && !schedule.getImageUrls().isEmpty()) {
+                
+                int imagesPerDisplay = switch (schedule.getContentType()) {
+                    case IMAGE_SINGLE -> 1;
+                    case IMAGE_DUAL -> 2;
+                    case IMAGE_QUAD -> 4;
+                    default -> 1;
+                };
+                
+                int totalImages = schedule.getImageUrls().size();
+                int totalRotations = (int) Math.ceil((double) totalImages / imagesPerDisplay);
+                
+                rotationInfo.put("hasRotation", totalRotations > 1);
+                rotationInfo.put("totalImages", totalImages);
+                rotationInfo.put("imagesPerDisplay", imagesPerDisplay);
+                rotationInfo.put("totalRotations", totalRotations);
+                rotationInfo.put("contentType", schedule.getContentType());
+                rotationInfo.put("title", schedule.getTitle());
+            } else {
+                rotationInfo.put("hasRotation", false);
+                rotationInfo.put("contentType", schedule.getContentType());
+                rotationInfo.put("title", schedule.getTitle());
+            }
+            
+            return ResponseEntity.ok(rotationInfo);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body("Invalid TV name: " + tvName);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+        }
+    }
+
     // Debug endpoint to check TV content status
     @GetMapping("/debug/tv/{tvName}")
     public ResponseEntity<?> debugTVContent(@PathVariable("tvName") String tvName) {
