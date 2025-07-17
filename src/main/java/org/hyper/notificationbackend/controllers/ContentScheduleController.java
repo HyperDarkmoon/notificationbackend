@@ -3,6 +3,8 @@ package org.hyper.notificationbackend.controllers;
 import org.hyper.notificationbackend.models.ContentSchedule;
 import org.hyper.notificationbackend.models.TVEnum;
 import org.hyper.notificationbackend.services.ContentScheduleService;
+import org.hyper.notificationbackend.dto.ContentScheduleRequest;
+import org.hyper.notificationbackend.dto.ContentScheduleResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -12,6 +14,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/api/content")
@@ -25,7 +28,20 @@ public class ContentScheduleController {
     public ResponseEntity<?> createContentSchedule(@RequestBody ContentSchedule contentSchedule) {
         try {
             ContentSchedule newSchedule = contentScheduleService.createSchedule(contentSchedule);
-            return ResponseEntity.ok(newSchedule);
+            ContentScheduleResponse response = ContentScheduleResponse.fromEntity(newSchedule);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+        }
+    }
+    
+    // Create a new content schedule from DTO (supports multiple time schedules)
+    @PostMapping("/from-request")
+    public ResponseEntity<?> createContentScheduleFromRequest(@RequestBody ContentScheduleRequest request) {
+        try {
+            ContentSchedule newSchedule = contentScheduleService.createScheduleFromRequest(request);
+            ContentScheduleResponse response = ContentScheduleResponse.fromEntity(newSchedule);
+            return ResponseEntity.ok(response);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Error: " + e.getMessage());
         }
@@ -33,34 +49,50 @@ public class ContentScheduleController {
     
     // Get all content schedules
     @GetMapping("/all")
-    public ResponseEntity<List<ContentSchedule>> getAllContentSchedules() {
-        return ResponseEntity.ok(contentScheduleService.getAllSchedules());
+    public ResponseEntity<List<ContentScheduleResponse>> getAllContentSchedules() {
+        List<ContentSchedule> schedules = contentScheduleService.getAllSchedules();
+        List<ContentScheduleResponse> responses = schedules.stream()
+            .map(ContentScheduleResponse::fromEntity)
+            .collect(Collectors.toList());
+        return ResponseEntity.ok(responses);
     }
     
     // Get content schedule by ID
     @GetMapping("/{id}")
     public ResponseEntity<?> getContentScheduleById(@PathVariable("id") Long id) {
         Optional<ContentSchedule> schedule = contentScheduleService.getScheduleById(id);
-        return schedule.map(ResponseEntity::ok)
+        return schedule.map(s -> ResponseEntity.ok(ContentScheduleResponse.fromEntity(s)))
                 .orElse(ResponseEntity.notFound().build());
     }
     
     // Get currently active schedules
     @GetMapping("/active")
-    public ResponseEntity<List<ContentSchedule>> getCurrentlyActiveSchedules() {
-        return ResponseEntity.ok(contentScheduleService.getCurrentlyActiveSchedules());
+    public ResponseEntity<List<ContentScheduleResponse>> getCurrentlyActiveSchedules() {
+        List<ContentSchedule> schedules = contentScheduleService.getCurrentlyActiveSchedules();
+        List<ContentScheduleResponse> responses = schedules.stream()
+            .map(ContentScheduleResponse::fromEntity)
+            .collect(Collectors.toList());
+        return ResponseEntity.ok(responses);
     }
     
     // Get upcoming schedules
     @GetMapping("/upcoming")
-    public ResponseEntity<List<ContentSchedule>> getUpcomingSchedules() {
-        return ResponseEntity.ok(contentScheduleService.getUpcomingSchedules());
+    public ResponseEntity<List<ContentScheduleResponse>> getUpcomingSchedules() {
+        List<ContentSchedule> schedules = contentScheduleService.getUpcomingSchedules();
+        List<ContentScheduleResponse> responses = schedules.stream()
+            .map(ContentScheduleResponse::fromEntity)
+            .collect(Collectors.toList());
+        return ResponseEntity.ok(responses);
     }
     
     // Get immediate/indefinite schedules
     @GetMapping("/immediate")
-    public ResponseEntity<List<ContentSchedule>> getImmediateSchedules() {
-        return ResponseEntity.ok(contentScheduleService.getImmediateSchedules());
+    public ResponseEntity<List<ContentScheduleResponse>> getImmediateSchedules() {
+        List<ContentSchedule> schedules = contentScheduleService.getImmediateSchedules();
+        List<ContentScheduleResponse> responses = schedules.stream()
+            .map(ContentScheduleResponse::fromEntity)
+            .collect(Collectors.toList());
+        return ResponseEntity.ok(responses);
     }
     
     // Get schedules for a specific TV
@@ -68,7 +100,11 @@ public class ContentScheduleController {
     public ResponseEntity<?> getSchedulesForTV(@PathVariable("tvName") String tvName) {
         try {
             TVEnum tv = TVEnum.valueOf(tvName);
-            return ResponseEntity.ok(contentScheduleService.getSchedulesForTV(tv));
+            List<ContentSchedule> schedules = contentScheduleService.getSchedulesForTV(tv);
+            List<ContentScheduleResponse> responses = schedules.stream()
+                .map(ContentScheduleResponse::fromEntity)
+                .collect(Collectors.toList());
+            return ResponseEntity.ok(responses);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body("Invalid TV name: " + tvName);
         }
@@ -79,7 +115,11 @@ public class ContentScheduleController {
     public ResponseEntity<?> getUpcomingSchedulesForTV(@PathVariable("tvName") String tvName) {
         try {
             TVEnum tv = TVEnum.valueOf(tvName);
-            return ResponseEntity.ok(contentScheduleService.getUpcomingSchedulesForTV(tv));
+            List<ContentSchedule> schedules = contentScheduleService.getUpcomingSchedulesForTV(tv);
+            List<ContentScheduleResponse> responses = schedules.stream()
+                .map(ContentScheduleResponse::fromEntity)
+                .collect(Collectors.toList());
+            return ResponseEntity.ok(responses);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body("Invalid TV name: " + tvName);
         }
@@ -90,7 +130,21 @@ public class ContentScheduleController {
     public ResponseEntity<?> updateContentSchedule(@PathVariable("id") Long id, @RequestBody ContentSchedule contentSchedule) {
         try {
             ContentSchedule updatedSchedule = contentScheduleService.updateSchedule(id, contentSchedule);
-            return ResponseEntity.ok(updatedSchedule);
+            ContentScheduleResponse response = ContentScheduleResponse.fromEntity(updatedSchedule);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+        }
+    }
+    
+    // Update a content schedule from DTO (supports multiple time schedules)
+    @PutMapping("/{id}/from-request")
+    public ResponseEntity<?> updateContentScheduleFromRequest(@PathVariable("id") Long id, @RequestBody ContentScheduleRequest request) {
+        try {
+            ContentSchedule contentSchedule = contentScheduleService.convertFromRequest(request);
+            ContentSchedule updatedSchedule = contentScheduleService.updateSchedule(id, contentSchedule);
+            ContentScheduleResponse response = ContentScheduleResponse.fromEntity(updatedSchedule);
+            return ResponseEntity.ok(response);
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Error: " + e.getMessage());
         }
@@ -111,7 +165,7 @@ public class ContentScheduleController {
     @PostMapping("/cleanup-expired")
     public ResponseEntity<?> cleanupExpiredContent() {
         try {
-            contentScheduleService.restoreTemporarilyDisabledContent();
+            contentScheduleService.manageScheduledContent();
             return ResponseEntity.ok("Expired content cleaned up successfully");
         } catch (Exception e) {
             return ResponseEntity.badRequest().body("Error: " + e.getMessage());

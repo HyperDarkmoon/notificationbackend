@@ -1,29 +1,122 @@
 package org.hyper.notificationbackend.services;
 
 import org.hyper.notificationbackend.models.ContentSchedule;
+import org.hyper.notificationbackend.models.TimeSchedule;
 import org.hyper.notificationbackend.models.TVEnum;
 import org.hyper.notificationbackend.repositories.ContentScheduleRepository;
+import org.hyper.notificationbackend.repositories.TimeScheduleRepository;
+import org.hyper.notificationbackend.dto.ContentScheduleRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.scheduling.annotation.Scheduled;
 
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
+@Transactional
 public class ContentScheduleService {
     
     @Autowired
     private ContentScheduleRepository contentScheduleRepository;
     
-    // Create a new content schedule
+    @Autowired
+    private TimeScheduleRepository timeScheduleRepository;
+    
+    // Convert DTO to entity with multiple time schedules support
+        public ContentSchedule convertFromRequest(ContentScheduleRequest request) {
+        ContentSchedule contentSchedule = new ContentSchedule();
+        
+        contentSchedule.setTitle(request.getTitle());
+        contentSchedule.setDescription(request.getDescription());
+        contentSchedule.setContent(request.getContent());
+        contentSchedule.setImageUrls(request.getImageUrls());
+        contentSchedule.setVideoUrls(request.getVideoUrls());
+        
+        // Convert content type string to enum
+        if (request.getContentType() != null) {
+            contentSchedule.setContentType(ContentSchedule.ContentType.valueOf(request.getContentType()));
+        }
+        
+        // Convert target TVs
+        if (request.getTargetTVs() != null) {
+            Set<TVEnum> targetTVs = request.getTargetTVs().stream()
+                .map(TVEnum::valueOf)
+                .collect(Collectors.toSet());
+            contentSchedule.setTargetTVs(targetTVs);
+        }
+        
+        // Handle time schedules - support both new format and legacy format
+        List<TimeSchedule> timeSchedules = new ArrayList<>();
+        
+        // First, check if we have new format time schedules (multiple schedules)
+        if (request.getTimeSchedules() != null && !request.getTimeSchedules().isEmpty()) {
+            for (ContentScheduleRequest.TimeScheduleRequest tsRequest : request.getTimeSchedules()) {
+                TimeSchedule timeSchedule = new TimeSchedule();
+                timeSchedule.setStartTime(tsRequest.getStartTime());
+                timeSchedule.setEndTime(tsRequest.getEndTime());
+                // Set the relationship - this is crucial!
+                timeSchedule.setContentSchedule(contentSchedule);
+                timeSchedules.add(timeSchedule);
+            }
+            contentSchedule.setImmediate(false);
+        } 
+        // Check legacy format (single start/end time)
+        else if (request.getStartTime() != null && request.getEndTime() != null) {
+            TimeSchedule timeSchedule = new TimeSchedule();
+            timeSchedule.setStartTime(request.getStartTime());
+            timeSchedule.setEndTime(request.getEndTime());
+            // Set the relationship - this is crucial!
+            timeSchedule.setContentSchedule(contentSchedule);
+            timeSchedules.add(timeSchedule);
+            contentSchedule.setImmediate(false);
+        }
+        // No time schedules - immediate content
+        else {
+            contentSchedule.setImmediate(true);
+        }
+        
+        contentSchedule.setTimeSchedules(timeSchedules);
+        
+        // Set active to true by default (since DTO doesn't include this field)
+        contentSchedule.setActive(request.isActive());
+        
+        return contentSchedule;
+    }
+    
+    // Create a new content schedule with multiple time schedules support
+    @Transactional
     public ContentSchedule createSchedule(ContentSchedule contentSchedule) {
         validateSchedule(contentSchedule);
+        
+        // Determine if this is immediate content
+        boolean isImmediate = (contentSchedule.getTimeSchedules() == null || contentSchedule.getTimeSchedules().isEmpty());
+        contentSchedule.setImmediate(isImmediate);
         
         // Handle content override logic
         handleContentOverride(contentSchedule);
         
-        return contentScheduleRepository.save(contentSchedule);
+        // FIXED: Properly set up bidirectional relationship before saving
+        if (!isImmediate && contentSchedule.getTimeSchedules() != null) {
+            for (TimeSchedule timeSchedule : contentSchedule.getTimeSchedules()) {
+                timeSchedule.setContentSchedule(contentSchedule);
+            }
+        }
+        
+        // Save the content schedule with cascaded time schedules
+        // The cascade should handle saving the time schedules automatically
+        ContentSchedule savedSchedule = contentScheduleRepository.save(contentSchedule);
+        
+        return savedSchedule;
+    }
+    
+    // Create schedule from request DTO (new method)
+    @Transactional
+    public ContentSchedule createScheduleFromRequest(ContentScheduleRequest request) {
+        ContentSchedule contentSchedule = convertFromRequest(request);
+        return createSchedule(contentSchedule);
     }
     
     // Get all content schedules
@@ -38,15 +131,37 @@ public class ContentScheduleService {
     
     // Get currently active schedules (includes both time-based and immediate schedules)
     public List<ContentSchedule> getCurrentlyActiveSchedules() {
-        List<ContentSchedule> activeSchedules = contentScheduleRepository.findCurrentlyActive(LocalDateTime.now());
+        LocalDateTime now = LocalDateTime.now();
+        List<ContentSchedule> activeSchedules = new ArrayList<>();
+        
+        // Get immediate schedules
         List<ContentSchedule> immediateSchedules = contentScheduleRepository.findImmediateSchedules();
         activeSchedules.addAll(immediateSchedules);
+        
+        // Get schedules with active time schedules
+        List<TimeSchedule> activeTimeSchedules = timeScheduleRepository.findCurrentlyActive(now);
+        for (TimeSchedule timeSchedule : activeTimeSchedules) {
+            if (!activeSchedules.contains(timeSchedule.getContentSchedule())) {
+                activeSchedules.add(timeSchedule.getContentSchedule());
+            }
+        }
+        
         return activeSchedules;
     }
     
     // Get upcoming schedules
     public List<ContentSchedule> getUpcomingSchedules() {
-        return contentScheduleRepository.findUpcoming(LocalDateTime.now());
+        LocalDateTime now = LocalDateTime.now();
+        List<ContentSchedule> upcomingSchedules = new ArrayList<>();
+        
+        List<TimeSchedule> upcomingTimeSchedules = timeScheduleRepository.findUpcoming(now);
+        for (TimeSchedule timeSchedule : upcomingTimeSchedules) {
+            if (!upcomingSchedules.contains(timeSchedule.getContentSchedule())) {
+                upcomingSchedules.add(timeSchedule.getContentSchedule());
+            }
+        }
+        
+        return upcomingSchedules;
     }
     
     // Get immediate/indefinite schedules
@@ -54,14 +169,44 @@ public class ContentScheduleService {
         return contentScheduleRepository.findImmediateSchedules();
     }
     
-    // Get schedules for a specific TV
+    // Get schedules for a specific TV (prioritized by immediate vs scheduled)
     public List<ContentSchedule> getSchedulesForTV(TVEnum tv) {
-        return contentScheduleRepository.findByTV(tv);
+        LocalDateTime now = LocalDateTime.now();
+        List<ContentSchedule> result = new ArrayList<>();
+        
+        // First, get any scheduled content that's currently active (higher priority)
+        List<TimeSchedule> activeTimeSchedules = timeScheduleRepository.findCurrentlyActiveForTV(tv, now);
+        for (TimeSchedule timeSchedule : activeTimeSchedules) {
+            ContentSchedule content = timeSchedule.getContentSchedule();
+            if (content.isActive() && !result.contains(content)) {
+                result.add(content);
+            }
+        }
+        
+        // If no scheduled content is active, get immediate content
+        if (result.isEmpty()) {
+            List<ContentSchedule> immediateSchedules = contentScheduleRepository.findImmediateForTV(tv);
+            result.addAll(immediateSchedules.stream()
+                .filter(ContentSchedule::isActive)
+                .collect(Collectors.toList()));
+        }
+        
+        return result;
     }
     
     // Get upcoming schedules for a specific TV
     public List<ContentSchedule> getUpcomingSchedulesForTV(TVEnum tv) {
-        return contentScheduleRepository.findUpcomingForTV(tv, LocalDateTime.now());
+        LocalDateTime now = LocalDateTime.now();
+        List<ContentSchedule> upcomingSchedules = new ArrayList<>();
+        
+        List<TimeSchedule> upcomingTimeSchedules = timeScheduleRepository.findUpcomingForTV(tv, now);
+        for (TimeSchedule timeSchedule : upcomingTimeSchedules) {
+            if (!upcomingSchedules.contains(timeSchedule.getContentSchedule())) {
+                upcomingSchedules.add(timeSchedule.getContentSchedule());
+            }
+        }
+        
+        return upcomingSchedules;
     }
     
     // Update a content schedule
@@ -78,10 +223,25 @@ public class ContentScheduleService {
             existingSchedule.setContent(updatedSchedule.getContent());
             existingSchedule.setImageUrls(updatedSchedule.getImageUrls());
             existingSchedule.setVideoUrls(updatedSchedule.getVideoUrls());
-            existingSchedule.setStartTime(updatedSchedule.getStartTime());
-            existingSchedule.setEndTime(updatedSchedule.getEndTime());
             existingSchedule.setActive(updatedSchedule.isActive());
             existingSchedule.setTargetTVs(updatedSchedule.getTargetTVs());
+            
+            // Handle time schedules updates
+            if (updatedSchedule.getTimeSchedules() != null) {
+                // Clear old time schedules properly
+                existingSchedule.clearTimeSchedules();
+                
+                // Add new time schedules
+                for (TimeSchedule timeSchedule : updatedSchedule.getTimeSchedules()) {
+                    timeSchedule.setContentSchedule(existingSchedule);
+                    existingSchedule.addTimeSchedule(timeSchedule);
+                }
+                existingSchedule.setImmediate(false);
+            } else {
+                // No time schedules provided - make it immediate content
+                existingSchedule.clearTimeSchedules();
+                existingSchedule.setImmediate(true);
+            }
             
             return contentScheduleRepository.save(existingSchedule);
         }
@@ -103,94 +263,148 @@ public class ContentScheduleService {
     
     // Handle content override for a specific TV
     private void handleTVContentOverride(TVEnum tv, ContentSchedule newSchedule) {
-        // Get all active schedules for this TV
-        List<ContentSchedule> existingSchedules = contentScheduleRepository.findByTV(tv);
+        // Get all active immediate content for this TV
+        List<ContentSchedule> existingImmediate = contentScheduleRepository.findImmediateForTV(tv);
         
-        for (ContentSchedule existing : existingSchedules) {
+        for (ContentSchedule existing : existingImmediate) {
             if (existing.isActive()) {
-                // Check if the new schedule should override this existing one
-                if (shouldOverride(existing, newSchedule)) {
-                    // If new schedule is timed, temporarily disable the old one
-                    if (newSchedule.getStartTime() != null && newSchedule.getEndTime() != null) {
-                        // Mark as temporarily disabled - we'll use a special marker
-                        // The old content will be re-enabled when the new timed content expires
-                        existing.setActive(false);
-                        // Store the original state info in description for restoration
-                        if (!existing.getDescription().contains("[TEMP_DISABLED_BY_")) {
-                            existing.setDescription(existing.getDescription() + 
-                                " [TEMP_DISABLED_BY_" + newSchedule.hashCode() + "]");
-                        }
-                    } else {
-                        // If new schedule is permanent/immediate, permanently disable old content
-                        existing.setActive(false);
-                    }
+                if (newSchedule.isImmediate()) {
+                    // New immediate content overrides old immediate content permanently
+                    existing.setActive(false);
                     contentScheduleRepository.save(existing);
+                } else {
+                    // New scheduled content will temporarily override immediate content when it becomes active
+                    // Just store the reference for later use when the schedule actually starts
+                    // DO NOT deactivate the existing content immediately
+                    for (TimeSchedule timeSchedule : newSchedule.getTimeSchedules()) {
+                        String existingDisabled = timeSchedule.getTemporarilyDisabledContentIds();
+                        if (existingDisabled != null && !existingDisabled.isEmpty()) {
+                            timeSchedule.setTemporarilyDisabledContentIds(existingDisabled + "," + existing.getId());
+                        } else {
+                            timeSchedule.setTemporarilyDisabledContentIds(existing.getId().toString());
+                        }
+                    }
+                    // Note: We don't deactivate the existing content here anymore
+                    // It will be deactivated by the scheduled task when the time schedule becomes active
+                }
+            }
+        }
+        
+        // Handle overlapping scheduled content
+        if (!newSchedule.isImmediate()) {
+            for (TimeSchedule newTimeSchedule : newSchedule.getTimeSchedules()) {
+                // Find any existing time schedules that overlap with this new one using the repository method
+                List<TimeSchedule> overlappingSchedules = timeScheduleRepository.findOverlappingForTV(
+                    tv, newTimeSchedule.getStartTime(), newTimeSchedule.getEndTime());
+                
+                for (TimeSchedule overlapping : overlappingSchedules) {
+                    // Skip if it's the same schedule (in case of updates)
+                    if (overlapping.getContentSchedule().getId().equals(newSchedule.getId())) {
+                        continue;
+                    }
+                    
+                    // Disable the overlapping time schedule
+                    overlapping.setActive(false);
+                    timeScheduleRepository.save(overlapping);
+                    
+                    // Store reference to restore later if needed
+                    String existingDisabled = newTimeSchedule.getTemporarilyDisabledContentIds();
+                    if (existingDisabled != null && !existingDisabled.isEmpty()) {
+                        newTimeSchedule.setTemporarilyDisabledContentIds(existingDisabled + "," + overlapping.getContentSchedule().getId());
+                    } else {
+                        newTimeSchedule.setTemporarilyDisabledContentIds(overlapping.getContentSchedule().getId().toString());
+                    }
                 }
             }
         }
     }
     
-    // Determine if new schedule should override existing one
-    private boolean shouldOverride(ContentSchedule existing, ContentSchedule newSchedule) {
-        // Override rules:
-        // 1. New immediate content overrides everything
-        // 2. New timed content overrides immediate content temporarily
-        // 3. New timed content overrides other timed content if it starts sooner or overlaps
-        
-        boolean newIsImmediate = (newSchedule.getStartTime() == null && newSchedule.getEndTime() == null);
-        boolean existingIsImmediate = (existing.getStartTime() == null && existing.getEndTime() == null);
-        
-        // Case 1: New immediate content always overrides
-        if (newIsImmediate) {
-            return true;
-        }
-        
-        // Case 2: New timed content overrides immediate content temporarily
-        if (existingIsImmediate && !newIsImmediate) {
-            return true;
-        }
-        
-        // Case 3: Both are timed - check for overlap or if new starts sooner
-        if (!existingIsImmediate && !newIsImmediate) {
-            LocalDateTime newStart = newSchedule.getStartTime();
-            LocalDateTime newEnd = newSchedule.getEndTime();
-            LocalDateTime existingStart = existing.getStartTime();
-            LocalDateTime existingEnd = existing.getEndTime();
-            
-            // Check for time overlap
-            return (newStart.isBefore(existingEnd) && newEnd.isAfter(existingStart));
-        }
-        
-        return false;
-    }
-    
-    // Method to restore temporarily disabled content (called when timed content expires)
-    public void restoreTemporarilyDisabledContent() {
-        List<ContentSchedule> allSchedules = contentScheduleRepository.findAll();
+    // Method to handle content scheduling and restoration (called every minute)
+    @Scheduled(fixedRate = 60000) // Run every minute
+    public void manageScheduledContent() {
         LocalDateTime now = LocalDateTime.now();
         
-        for (ContentSchedule schedule : allSchedules) {
-            // Check if this is an expired timed schedule
-            if (schedule.isActive() && schedule.getStartTime() != null && schedule.getEndTime() != null) {
-                if (now.isAfter(schedule.getEndTime())) {
-                    // This timed content has expired, restore any content it disabled
-                    String disabledMarker = "[TEMP_DISABLED_BY_" + schedule.hashCode() + "]";
-                    
-                    // Find content that was temporarily disabled by this schedule
-                    List<ContentSchedule> disabledContent = allSchedules.stream()
-                        .filter(s -> s.getDescription() != null && s.getDescription().contains(disabledMarker))
-                        .toList();
-                    
-                    for (ContentSchedule disabled : disabledContent) {
-                        // Remove the temporary disable marker
-                        disabled.setDescription(disabled.getDescription().replace(" " + disabledMarker, ""));
-                        disabled.setActive(true);
-                        contentScheduleRepository.save(disabled);
+        // 1. Handle starting schedules - deactivate content that should be temporarily disabled
+        List<TimeSchedule> startingSchedules = timeScheduleRepository.findCurrentlyActive(now);
+        for (TimeSchedule startingSchedule : startingSchedules) {
+            if (startingSchedule.isActive() && startingSchedule.getTemporarilyDisabledContentIds() != null && 
+                !startingSchedule.getTemporarilyDisabledContentIds().isEmpty()) {
+                
+                String[] disabledIds = startingSchedule.getTemporarilyDisabledContentIds().split(",");
+                for (String idStr : disabledIds) {
+                    try {
+                        Long disabledId = Long.parseLong(idStr.trim());
+                        Optional<ContentSchedule> contentToDisableOpt = contentScheduleRepository.findById(disabledId);
+                        if (contentToDisableOpt.isPresent()) {
+                            ContentSchedule contentToDisable = contentToDisableOpt.get();
+                            // Only disable if it's currently active and the schedule is currently running
+                            if (contentToDisable.isActive() && startingSchedule.isCurrentlyActive(now)) {
+                                contentToDisable.setActive(false);
+                                contentScheduleRepository.save(contentToDisable);
+                            }
+                        }
+                    } catch (NumberFormatException e) {
+                        System.err.println("Invalid content ID in temporarily disabled list: " + idStr);
                     }
-                    
-                    // Deactivate the expired schedule
-                    schedule.setActive(false);
-                    contentScheduleRepository.save(schedule);
+                }
+            }
+        }
+        
+        // 2. Handle expired schedules - restore temporarily disabled content
+        List<TimeSchedule> expiredSchedules = timeScheduleRepository.findExpired(now);
+        
+        for (TimeSchedule expiredSchedule : expiredSchedules) {
+            // Restore any content that was temporarily disabled by this schedule
+            if (expiredSchedule.getTemporarilyDisabledContentIds() != null && 
+                !expiredSchedule.getTemporarilyDisabledContentIds().isEmpty()) {
+                
+                String[] disabledIds = expiredSchedule.getTemporarilyDisabledContentIds().split(",");
+                for (String idStr : disabledIds) {
+                    try {
+                        Long disabledId = Long.parseLong(idStr.trim());
+                        Optional<ContentSchedule> disabledContentOpt = contentScheduleRepository.findById(disabledId);
+                        if (disabledContentOpt.isPresent()) {
+                            ContentSchedule disabledContent = disabledContentOpt.get();
+                            
+                            // Only restore if no other active schedule is currently disabling this content
+                            boolean shouldRestore = true;
+                            List<TimeSchedule> currentlyActiveSchedules = timeScheduleRepository.findCurrentlyActive(now);
+                            for (TimeSchedule activeSchedule : currentlyActiveSchedules) {
+                                if (activeSchedule.getTemporarilyDisabledContentIds() != null &&
+                                    activeSchedule.getTemporarilyDisabledContentIds().contains(disabledId.toString())) {
+                                    shouldRestore = false;
+                                    break;
+                                }
+                            }
+                            
+                            if (shouldRestore) {
+                                disabledContent.setActive(true);
+                                contentScheduleRepository.save(disabledContent);
+                            }
+                        }
+                    } catch (NumberFormatException e) {
+                        System.err.println("Invalid content ID in temporarily disabled list: " + idStr);
+                    }
+                }
+            }
+            
+            // Deactivate the expired time schedule
+            expiredSchedule.setActive(false);
+            timeScheduleRepository.save(expiredSchedule);
+        }
+        
+        // 3. Deactivate content schedules that only had timed content and all their time schedules are now expired
+        List<ContentSchedule> allContentSchedules = contentScheduleRepository.findAll();
+        for (ContentSchedule contentSchedule : allContentSchedules) {
+            if (!contentSchedule.isImmediate() && contentSchedule.isActive()) {
+                // Check if all time schedules for this content are expired or inactive
+                boolean hasActiveTimeSchedule = contentSchedule.getTimeSchedules().stream()
+                    .anyMatch(ts -> ts.isActive() && !ts.isExpired(now));
+                
+                if (!hasActiveTimeSchedule) {
+                    // No active time schedules, deactivate the content schedule
+                    contentSchedule.setActive(false);
+                    contentScheduleRepository.save(contentSchedule);
                 }
             }
         }
@@ -198,16 +412,21 @@ public class ContentScheduleService {
     
     // Validate schedule data
     private void validateSchedule(ContentSchedule schedule) {
-        // Only validate time relationship if both start and end times are provided
-        if (schedule.getStartTime() != null && schedule.getEndTime() != null) {
-            if (schedule.getStartTime().isAfter(schedule.getEndTime())) {
-                throw new IllegalArgumentException("Start time must be before end time");
+        // Validate time schedules
+        if (schedule.getTimeSchedules() != null && !schedule.getTimeSchedules().isEmpty()) {
+            for (TimeSchedule timeSchedule : schedule.getTimeSchedules()) {
+                if (timeSchedule.getStartTime() == null || timeSchedule.getEndTime() == null) {
+                    throw new IllegalArgumentException("Both start time and end time must be provided for scheduled content");
+                }
+                if (timeSchedule.getStartTime().isAfter(timeSchedule.getEndTime())) {
+                    throw new IllegalArgumentException("Start time must be before end time for scheduled content");
+                }
+                // Check that the schedule is not in the past (optional)
+                LocalDateTime now = LocalDateTime.now();
+                if (timeSchedule.getEndTime().isBefore(now)) {
+                    throw new IllegalArgumentException("Cannot schedule content in the past");
+                }
             }
-        }
-        // If only one time is provided, throw an error
-        else if ((schedule.getStartTime() != null && schedule.getEndTime() == null) ||
-                 (schedule.getStartTime() == null && schedule.getEndTime() != null)) {
-            throw new IllegalArgumentException("Both start time and end time must be provided, or both must be null for immediate/indefinite content");
         }
         
         if (schedule.getContentType() == null) {

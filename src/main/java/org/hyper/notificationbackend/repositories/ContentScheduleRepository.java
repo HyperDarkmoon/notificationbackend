@@ -11,16 +11,18 @@ import java.util.List;
 
 @Repository
 public interface ContentScheduleRepository extends JpaRepository<ContentSchedule, Long> {
-    // Find schedules that are currently active (current time is between start and end time)
+    // Find schedules that are currently active (deprecated - use TimeScheduleRepository instead)
+    @Deprecated
     @Query("SELECT c FROM ContentSchedule c WHERE c.active = true AND c.startTime <= ?1 AND c.endTime >= ?1")
     List<ContentSchedule> findCurrentlyActive(LocalDateTime currentTime);
     
-    // Find upcoming schedules (start time is in the future)
+    // Find upcoming schedules (deprecated - use TimeScheduleRepository instead)
+    @Deprecated
     @Query("SELECT c FROM ContentSchedule c WHERE c.active = true AND c.startTime > ?1 ORDER BY c.startTime ASC")
     List<ContentSchedule> findUpcoming(LocalDateTime currentTime);
     
-    // Find immediate/indefinite schedules (no start time or end time provided, show immediately and indefinitely)
-    @Query("SELECT c FROM ContentSchedule c WHERE c.active = true AND c.startTime IS NULL AND c.endTime IS NULL")
+    // Find immediate/indefinite schedules (no time schedules, show immediately and indefinitely)
+    @Query("SELECT c FROM ContentSchedule c WHERE c.active = true AND c.immediate = true")
     List<ContentSchedule> findImmediateSchedules();
 
     // Find schedules for a specific TV (includes immediate schedules)
@@ -28,14 +30,16 @@ public interface ContentScheduleRepository extends JpaRepository<ContentSchedule
     List<ContentSchedule> findByTV(TVEnum tv);
     
     // Find immediate schedules for a specific TV
-    @Query("SELECT c FROM ContentSchedule c JOIN c.targetTVs t WHERE t = ?1 AND c.active = true AND c.startTime IS NULL AND c.endTime IS NULL")
+    @Query("SELECT c FROM ContentSchedule c JOIN c.targetTVs t WHERE t = ?1 AND c.active = true AND c.immediate = true")
     List<ContentSchedule> findImmediateForTV(TVEnum tv);
     
-    // Find upcoming schedules for a specific TV
+    // Find upcoming schedules for a specific TV (deprecated - use TimeScheduleRepository instead)
+    @Deprecated
     @Query("SELECT c FROM ContentSchedule c JOIN c.targetTVs t WHERE t = ?1 AND c.active = true AND c.startTime > ?2 ORDER BY c.startTime ASC")
     List<ContentSchedule> findUpcomingForTV(TVEnum tv, LocalDateTime currentTime);
     
-    // Find the highest priority active content for a specific TV at current time
+    // Find the highest priority active content for a specific TV at current time (deprecated - use service layer logic instead)
+    @Deprecated
     @Query("SELECT c FROM ContentSchedule c JOIN c.targetTVs t WHERE t = ?1 AND c.active = true AND " +
            "((c.startTime IS NULL AND c.endTime IS NULL) OR " +
            "(c.startTime <= ?2 AND c.endTime >= ?2)) " +
