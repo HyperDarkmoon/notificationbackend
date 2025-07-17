@@ -1,5 +1,7 @@
 package org.hyper.notificationbackend.models;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -37,9 +39,22 @@ public class ContentSchedule {
     @Column(name = "video_url", columnDefinition = "LONGTEXT")
     private List<String> videoUrls = new ArrayList<>();
     
+    // Legacy fields for backward compatibility (deprecated - use timeSchedules instead)
+    @Deprecated
     private LocalDateTime startTime;
+    @Deprecated
     private LocalDateTime endTime;
+    
     private boolean active = true;
+    
+    // Flag to indicate if this is immediate/unscheduled content
+    @Column(name = "is_immediate")
+    private boolean immediate = false;
+    
+    // Multiple time schedules support
+    @OneToMany(mappedBy = "contentSchedule", cascade = CascadeType.ALL, fetch = FetchType.LAZY, orphanRemoval = true)
+    @JsonManagedReference
+    private List<TimeSchedule> timeSchedules = new ArrayList<>();
     
     // Specify which TVs should display this content using the enum
     @ElementCollection
@@ -170,5 +185,72 @@ public class ContentSchedule {
     
     public void removeTargetTV(TVEnum tv) {
         this.targetTVs.remove(tv);
+    }
+    
+    // New methods for TimeSchedule management
+    public List<TimeSchedule> getTimeSchedules() {
+        return timeSchedules;
+    }
+    
+    public void setTimeSchedules(List<TimeSchedule> timeSchedules) {
+        this.timeSchedules = timeSchedules;
+        // Update the immediate flag based on time schedules
+        this.immediate = (timeSchedules == null || timeSchedules.isEmpty());
+    }
+    
+    public void addTimeSchedule(TimeSchedule timeSchedule) {
+        this.timeSchedules.add(timeSchedule);
+        timeSchedule.setContentSchedule(this);
+        this.immediate = false; // No longer immediate if it has time schedules
+    }
+    
+    public void removeTimeSchedule(TimeSchedule timeSchedule) {
+        this.timeSchedules.remove(timeSchedule);
+        timeSchedule.setContentSchedule(null);
+        // Update immediate flag
+        this.immediate = this.timeSchedules.isEmpty();
+    }
+    
+    public void clearTimeSchedules() {
+        // Properly clear the relationship on both sides
+        for (TimeSchedule ts : new ArrayList<>(this.timeSchedules)) {
+            removeTimeSchedule(ts);
+        }
+        this.timeSchedules.clear();
+        this.immediate = true; // Becomes immediate if no time schedules
+    }
+    
+    public boolean isImmediate() {
+        return immediate;
+    }
+    
+    public void setImmediate(boolean immediate) {
+        this.immediate = immediate;
+    }
+    
+    // Helper method to check if content is currently active based on time schedules
+    public boolean isCurrentlyActiveBySchedule(LocalDateTime currentTime) {
+        if (immediate) {
+            return active; // Immediate content is always active if the flag is true
+        }
+        
+        // Check if any time schedule is currently active
+        return timeSchedules.stream()
+                .anyMatch(ts -> ts.isCurrentlyActive(currentTime));
+    }
+    
+    // Helper method to get the next upcoming time schedule
+    public TimeSchedule getNextUpcomingSchedule(LocalDateTime currentTime) {
+        return timeSchedules.stream()
+                .filter(ts -> ts.isUpcoming(currentTime))
+                .min((ts1, ts2) -> ts1.getStartTime().compareTo(ts2.getStartTime()))
+                .orElse(null);
+    }
+    
+    // Helper method to get currently active time schedules
+    public List<TimeSchedule> getCurrentlyActiveSchedules(LocalDateTime currentTime) {
+        return timeSchedules.stream()
+                .filter(ts -> ts.isCurrentlyActive(currentTime))
+                .toList();
     }
 }

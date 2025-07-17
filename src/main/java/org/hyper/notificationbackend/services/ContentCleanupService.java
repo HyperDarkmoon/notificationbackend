@@ -13,6 +13,6 @@ public class ContentCleanupService {
     // Run every minute to check for expired content and restore disabled content
     @Scheduled(fixedRate = 60000) // 60 seconds
     public void cleanupExpiredContent() {
-        contentScheduleService.restoreTemporarilyDisabledContent();
+        contentScheduleService.manageScheduledContent();
     }
 }
