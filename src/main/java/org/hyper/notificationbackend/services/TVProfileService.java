@@ -2,13 +2,17 @@ package org.hyper.notificationbackend.services;
 
 import org.hyper.notificationbackend.models.TVProfile;
 import org.hyper.notificationbackend.models.ProfileSlide;
+import org.hyper.notificationbackend.models.ProfileTimeSchedule;
 import org.hyper.notificationbackend.repositories.TVProfileRepository;
+import org.hyper.notificationbackend.repositories.ProfileTimeScheduleRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -17,9 +21,33 @@ public class TVProfileService {
     @Autowired
     private TVProfileRepository tvProfileRepository;
     
+    @Autowired
+    private ProfileTimeScheduleRepository profileTimeScheduleRepository;
+    
     // Create a new profile
     public TVProfile createProfile(TVProfile profile) {
+        // Auto-fix inconsistent scheduling state
+        if (profile.isImmediate() && profile.getTimeSchedules() != null && !profile.getTimeSchedules().isEmpty()) {
+            System.out.println("Auto-correcting profile: has time schedules but isImmediate=true, setting to false");
+            profile.setImmediate(false);
+        }
+        
         validateProfile(profile);
+        
+        // Set the profile reference for all slides
+        if (profile.getSlides() != null) {
+            for (ProfileSlide slide : profile.getSlides()) {
+                slide.setProfile(profile);
+            }
+        }
+        
+        // Set the profile reference for all time schedules
+        if (profile.getTimeSchedules() != null) {
+            for (ProfileTimeSchedule schedule : profile.getTimeSchedules()) {
+                schedule.setTvProfile(profile);
+            }
+        }
+        
         return tvProfileRepository.save(profile);
     }
     
@@ -41,6 +69,7 @@ public class TVProfileService {
             profile.setName(updatedProfile.getName());
             profile.setDescription(updatedProfile.getDescription());
             profile.setActive(updatedProfile.isActive());
+            profile.setImmediate(updatedProfile.isImmediate());
             
             // Update slides
             profile.clearSlides();
@@ -49,6 +78,24 @@ public class TVProfileService {
                     slide.setProfile(profile);
                     profile.addSlide(slide);
                 }
+            }
+            
+            // Update time schedules
+            // Clear existing schedules first
+            profileTimeScheduleRepository.deleteByTvProfile(profile);
+            
+            // Add new schedules if provided
+            if (updatedProfile.getTimeSchedules() != null && !updatedProfile.isImmediate()) {
+                for (ProfileTimeSchedule schedule : updatedProfile.getTimeSchedules()) {
+                    schedule.setTvProfile(profile);
+                    profile.addTimeSchedule(schedule);
+                }
+            }
+            
+            // Auto-fix inconsistent scheduling state
+            if (profile.isImmediate() && profile.getTimeSchedules() != null && !profile.getTimeSchedules().isEmpty()) {
+                System.out.println("Auto-correcting profile during update: has time schedules but isImmediate=true, setting to false");
+                profile.setImmediate(false);
             }
             
             validateProfile(profile);
@@ -141,5 +188,96 @@ public class TVProfileService {
                 }
                 break;
         }
+    }
+    
+    // Scheduling-related methods
+    
+    // Check if a profile is currently active based on its schedules
+    public boolean isProfileCurrentlyActive(Long profileId) {
+        Optional<TVProfile> profileOpt = getProfileById(profileId);
+        if (!profileOpt.isPresent() || !profileOpt.get().isActive()) {
+            System.out.println("Profile " + profileId + " not found or not active");
+            return false;
+        }
+        
+        TVProfile profile = profileOpt.get();
+        
+        System.out.println("Checking profile " + profileId + " (isImmediate: " + profile.isImmediate() + ")");
+        
+        // If profile is set to immediate, it's always active
+        if (profile.isImmediate()) {
+            System.out.println("Profile " + profileId + " is immediate, returning true");
+            return true;
+        }
+        
+        // Check if any time schedules are currently active
+        LocalDateTime now = LocalDateTime.now();
+        System.out.println("Current time: " + now);
+        boolean hasActiveSchedules = profileTimeScheduleRepository.hasActiveSchedules(profile, now);
+        System.out.println("Profile " + profileId + " has active schedules: " + hasActiveSchedules);
+        
+        return hasActiveSchedules;
+    }
+    
+    // Get all currently active profiles (considering schedules)
+    public List<TVProfile> getCurrentlyActiveProfiles() {
+        List<TVProfile> allProfiles = getAllProfiles();
+        return allProfiles.stream()
+                .filter(profile -> isProfileCurrentlyActive(profile.getId()))
+                .collect(Collectors.toList());
+    }
+    
+    // Add time schedule to a profile
+    public ProfileTimeSchedule addTimeScheduleToProfile(Long profileId, LocalDateTime startTime, LocalDateTime endTime) {
+        Optional<TVProfile> profileOpt = getProfileById(profileId);
+        if (!profileOpt.isPresent()) {
+            throw new IllegalArgumentException("Profile not found with ID: " + profileId);
+        }
+        
+        TVProfile profile = profileOpt.get();
+        
+        // Validate time schedule
+        if (startTime.isAfter(endTime) || startTime.isEqual(endTime)) {
+            throw new IllegalArgumentException("Start time must be before end time");
+        }
+        
+        // Check for overlapping schedules
+        List<ProfileTimeSchedule> overlapping = profileTimeScheduleRepository.findOverlappingSchedules(profile, startTime, endTime);
+        if (!overlapping.isEmpty()) {
+            throw new IllegalArgumentException("Time schedule overlaps with existing schedule");
+        }
+        
+        ProfileTimeSchedule timeSchedule = new ProfileTimeSchedule(startTime, endTime, profile);
+        return profileTimeScheduleRepository.save(timeSchedule);
+    }
+    
+    // Remove time schedule from profile
+    public void removeTimeScheduleFromProfile(Long profileId, Long scheduleId) {
+        Optional<TVProfile> profileOpt = getProfileById(profileId);
+        if (!profileOpt.isPresent()) {
+            throw new IllegalArgumentException("Profile not found with ID: " + profileId);
+        }
+        
+        Optional<ProfileTimeSchedule> scheduleOpt = profileTimeScheduleRepository.findById(scheduleId);
+        if (!scheduleOpt.isPresent()) {
+            throw new IllegalArgumentException("Time schedule not found with ID: " + scheduleId);
+        }
+        
+        ProfileTimeSchedule schedule = scheduleOpt.get();
+        if (!schedule.getTvProfile().getId().equals(profileId)) {
+            throw new IllegalArgumentException("Time schedule does not belong to the specified profile");
+        }
+        
+        profileTimeScheduleRepository.delete(schedule);
+    }
+    
+    // Get all time schedules for a profile
+    public List<ProfileTimeSchedule> getProfileTimeSchedules(Long profileId) {
+        Optional<TVProfile> profileOpt = getProfileById(profileId);
+        if (!profileOpt.isPresent()) {
+            throw new IllegalArgumentException("Profile not found with ID: " + profileId);
+        }
+        
+        return profileTimeScheduleRepository.findByTvProfileIdAndActiveTrue(profileId);
     }
 }

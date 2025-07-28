@@ -1,13 +1,16 @@
 package org.hyper.notificationbackend.models;
 
 import com.fasterxml.jackson.annotation.JsonManagedReference;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 @Entity
 @Table(name = "tv_profiles")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class TVProfile {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -24,6 +27,14 @@ public class TVProfile {
     @OrderBy("slideOrder ASC")
     private List<ProfileSlide> slides = new ArrayList<>();
     
+    // Scheduling fields
+    @OneToMany(mappedBy = "tvProfile", cascade = CascadeType.ALL, fetch = FetchType.EAGER, orphanRemoval = true)
+    @JsonManagedReference
+    private List<ProfileTimeSchedule> timeSchedules = new ArrayList<>();
+    
+    @Column(name = "is_immediate", nullable = false, columnDefinition = "BOOLEAN DEFAULT true")
+    private Boolean isImmediate = true; // true means immediate, false means scheduled
+    
     @Column(nullable = false)
     private LocalDateTime createdAt;
     
@@ -37,6 +48,7 @@ public class TVProfile {
     public TVProfile() {
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
+        this.isImmediate = true; // Default to immediate
     }
     
     public TVProfile(String name, String description) {
@@ -106,6 +118,24 @@ public class TVProfile {
         this.updatedAt = LocalDateTime.now();
     }
     
+    public List<ProfileTimeSchedule> getTimeSchedules() {
+        return timeSchedules;
+    }
+    
+    public void setTimeSchedules(List<ProfileTimeSchedule> timeSchedules) {
+        this.timeSchedules = timeSchedules;
+        this.updatedAt = LocalDateTime.now();
+    }
+    
+    public boolean isImmediate() {
+        return isImmediate != null ? isImmediate : true; // Default to true if null
+    }
+    
+    public void setImmediate(boolean isImmediate) {
+        this.isImmediate = isImmediate;
+        this.updatedAt = LocalDateTime.now();
+    }
+    
     // Helper methods
     public void addSlide(ProfileSlide slide) {
         slides.add(slide);
@@ -119,13 +149,35 @@ public class TVProfile {
         this.updatedAt = LocalDateTime.now();
     }
     
+    public void addTimeSchedule(ProfileTimeSchedule timeSchedule) {
+        timeSchedules.add(timeSchedule);
+        timeSchedule.setTvProfile(this);
+        this.updatedAt = LocalDateTime.now();
+    }
+    
+    public void removeTimeSchedule(ProfileTimeSchedule timeSchedule) {
+        timeSchedules.remove(timeSchedule);
+        timeSchedule.setTvProfile(null);
+        this.updatedAt = LocalDateTime.now();
+    }
+    
     public void clearSlides() {
         slides.clear();
         this.updatedAt = LocalDateTime.now();
     }
     
+    @PrePersist
+    public void prePersist() {
+        if (this.isImmediate == null) {
+            this.isImmediate = true;
+        }
+    }
+    
     @PreUpdate
     public void preUpdate() {
         this.updatedAt = LocalDateTime.now();
+        if (this.isImmediate == null) {
+            this.isImmediate = true;
+        }
     }
 }
