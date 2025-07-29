@@ -31,7 +31,7 @@ public class TVProfile {
     private List<ProfileTimeSchedule> timeSchedules = new ArrayList<>();
     
     @Column(name = "is_immediate")
-    private boolean isImmediate = false; // false means it's scheduled
+    private Boolean isImmediate = false; // false means it's scheduled
     
     // Daily schedule fields
     @Column(name = "is_daily_schedule")
@@ -135,7 +135,7 @@ public class TVProfile {
     }
     
     public boolean isImmediate() {
-        return isImmediate;
+        return isImmediate != null && isImmediate;
     }
     
     public void setImmediate(boolean isImmediate) {
@@ -145,10 +145,10 @@ public class TVProfile {
     
     // Daily schedule getters and setters
     public boolean isDailySchedule() {
-        return dailySchedule != null ? dailySchedule : false;
+        return dailySchedule != null && dailySchedule;
     }
     
-    public void setDailySchedule(Boolean dailySchedule) {
+    public void setDailySchedule(boolean dailySchedule) {
         this.dailySchedule = dailySchedule;
         this.updatedAt = LocalDateTime.now();
     }
@@ -203,7 +203,7 @@ public class TVProfile {
     
     // Helper method to check if daily schedule is currently active
     public boolean isDailyScheduleActive(LocalDateTime currentTime) {
-        if (dailySchedule == null || !dailySchedule || dailyStartTime == null || dailyEndTime == null) {
+        if (!isDailySchedule() || dailyStartTime == null || dailyEndTime == null) {
             return false;
         }
         

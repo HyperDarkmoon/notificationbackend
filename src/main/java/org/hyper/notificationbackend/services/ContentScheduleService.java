@@ -29,6 +29,16 @@ public class ContentScheduleService {
         public ContentSchedule convertFromRequest(ContentScheduleRequest request) {
         ContentSchedule contentSchedule = new ContentSchedule();
         
+        // Debug logging
+        System.out.println("=== DEBUG: Converting ContentScheduleRequest ===");
+        System.out.println("Request isImmediate: " + request.isImmediate());
+        System.out.println("Request isDailySchedule: " + request.isDailySchedule());
+        System.out.println("Request dailyStartTime: " + request.getDailyStartTime());
+        System.out.println("Request dailyEndTime: " + request.getDailyEndTime());
+        System.out.println("Request timeSchedules: " + (request.getTimeSchedules() != null ? request.getTimeSchedules().size() : "null"));
+        System.out.println("Request startTime: " + request.getStartTime());
+        System.out.println("Request endTime: " + request.getEndTime());
+        
         contentSchedule.setTitle(request.getTitle());
         contentSchedule.setDescription(request.getDescription());
         contentSchedule.setContent(request.getContent());
@@ -51,15 +61,32 @@ public class ContentScheduleService {
         // Handle time schedules - support daily schedule, multiple schedules, and legacy format
         List<TimeSchedule> timeSchedules = new ArrayList<>();
         
+        System.out.println("=== DEBUG: Processing schedule type ===");
+        
+        // Check if this is explicitly set as immediate content
+        if (request.isImmediate()) {
+            System.out.println("DEBUG: Setting as IMMEDIATE content");
+            contentSchedule.setImmediate(true);
+            contentSchedule.setDailySchedule(false);
+            System.out.println("DEBUG: After immediate - immediate is: " + contentSchedule.isImmediate());
+        }
         // First, check if this is a daily schedule
-        if (request.isDailySchedule()) {
+        else if (request.isDailySchedule()) {
+            System.out.println("DEBUG: Setting as DAILY SCHEDULE");
             contentSchedule.setDailySchedule(true);
             contentSchedule.setDailyStartTime(request.getDailyStartTime());
             contentSchedule.setDailyEndTime(request.getDailyEndTime());
+            // Set timeSchedules FIRST before setting immediate flag
+            // This is important because setTimeSchedules() automatically sets immediate=true for empty lists
+            contentSchedule.setTimeSchedules(timeSchedules);
+            // Now set immediate to false for daily schedules
             contentSchedule.setImmediate(false);
+            System.out.println("DEBUG: Daily schedule - immediate set to: " + contentSchedule.isImmediate());
+            // Skip the rest of the logic for daily schedules
         }
         // Check if we have new format time schedules (multiple schedules)
         else if (request.getTimeSchedules() != null && !request.getTimeSchedules().isEmpty()) {
+            System.out.println("DEBUG: Processing time schedules");
             for (ContentScheduleRequest.TimeScheduleRequest tsRequest : request.getTimeSchedules()) {
                 TimeSchedule timeSchedule = new TimeSchedule();
                 timeSchedule.setStartTime(tsRequest.getStartTime());
@@ -68,27 +95,42 @@ public class ContentScheduleService {
                 timeSchedule.setContentSchedule(contentSchedule);
                 timeSchedules.add(timeSchedule);
             }
+            contentSchedule.setTimeSchedules(timeSchedules);
             contentSchedule.setImmediate(false);
+            System.out.println("DEBUG: After time schedules - immediate is: " + contentSchedule.isImmediate());
         } 
         // Check legacy format (single start/end time)
         else if (request.getStartTime() != null && request.getEndTime() != null) {
+            System.out.println("DEBUG: Processing legacy format");
             TimeSchedule timeSchedule = new TimeSchedule();
             timeSchedule.setStartTime(request.getStartTime());
             timeSchedule.setEndTime(request.getEndTime());
             // Set the relationship - this is crucial!
             timeSchedule.setContentSchedule(contentSchedule);
             timeSchedules.add(timeSchedule);
+            contentSchedule.setTimeSchedules(timeSchedules);
             contentSchedule.setImmediate(false);
+            System.out.println("DEBUG: After legacy format - immediate is: " + contentSchedule.isImmediate());
         }
-        // No time schedules - immediate content
-        else {
+        // No time schedules and not daily schedule - immediate content
+        else if (!request.isDailySchedule()) {
+            System.out.println("DEBUG: No schedules found and not daily, setting as IMMEDIATE content");
+            contentSchedule.setTimeSchedules(timeSchedules);
             contentSchedule.setImmediate(true);
+            System.out.println("DEBUG: After setting immediate - immediate is: " + contentSchedule.isImmediate());
         }
         
-        contentSchedule.setTimeSchedules(timeSchedules);
+        System.out.println("DEBUG: Before final debug - immediate is: " + contentSchedule.isImmediate());
         
         // Set active to true by default (since DTO doesn't include this field)
         contentSchedule.setActive(request.isActive());
+        
+        System.out.println("=== DEBUG: Final ContentSchedule state ===");
+        System.out.println("Final isImmediate: " + contentSchedule.isImmediate());
+        System.out.println("Final isDailySchedule: " + contentSchedule.isDailySchedule());
+        System.out.println("Final dailyStartTime: " + contentSchedule.getDailyStartTime());
+        System.out.println("Final dailyEndTime: " + contentSchedule.getDailyEndTime());
+        System.out.println("=== END DEBUG ===");
         
         return contentSchedule;
     }
@@ -96,15 +138,32 @@ public class ContentScheduleService {
     // Create a new content schedule with multiple time schedules support
     @Transactional
     public ContentSchedule createSchedule(ContentSchedule contentSchedule) {
+        System.out.println("DEBUG: createSchedule() - incoming immediate: " + contentSchedule.isImmediate());
+        System.out.println("DEBUG: createSchedule() - incoming isDailySchedule: " + contentSchedule.isDailySchedule());
+        
         validateSchedule(contentSchedule);
         
-        // Determine if this is immediate content
-        boolean isImmediate = (contentSchedule.getTimeSchedules() == null || contentSchedule.getTimeSchedules().isEmpty());
-        contentSchedule.setImmediate(isImmediate);
+        boolean isImmediate = false;
         
-        // Handle content override logic
-        handleContentOverride(contentSchedule);
+        // Determine if this is immediate content - don't override if it's a daily schedule
+        if (!contentSchedule.isDailySchedule()) {
+            isImmediate = (contentSchedule.getTimeSchedules() == null || contentSchedule.getTimeSchedules().isEmpty());
+            contentSchedule.setImmediate(isImmediate);
+            System.out.println("DEBUG: Not a daily schedule, setting immediate to: " + isImmediate);
+        } else {
+            isImmediate = contentSchedule.isImmediate();
+            System.out.println("DEBUG: Is daily schedule, keeping immediate as: " + contentSchedule.isImmediate());
+        }
         
+        // Handle content override logic (skip for daily schedules - they are managed by the scheduled task)
+        if (!contentSchedule.isDailySchedule()) {
+            System.out.println("DEBUG: Calling handleContentOverride for non-daily schedule");
+            handleContentOverride(contentSchedule);
+        } else {
+            System.out.println("DEBUG: SKIPPING handleContentOverride for daily schedule - will be managed by scheduled task");
+        }
+        
+
         // FIXED: Properly set up bidirectional relationship before saving
         if (!isImmediate && contentSchedule.getTimeSchedules() != null) {
             for (TimeSchedule timeSchedule : contentSchedule.getTimeSchedules()) {
@@ -114,7 +173,9 @@ public class ContentScheduleService {
         
         // Save the content schedule with cascaded time schedules
         // The cascade should handle saving the time schedules automatically
+        System.out.println("DEBUG: About to save ContentSchedule to database");
         ContentSchedule savedSchedule = contentScheduleRepository.save(contentSchedule);
+        System.out.println("DEBUG: ContentSchedule saved successfully with ID: " + savedSchedule.getId());
         
         return savedSchedule;
     }
@@ -280,17 +341,25 @@ public class ContentScheduleService {
     
     // Handle content override for a specific TV
     private void handleTVContentOverride(TVEnum tv, ContentSchedule newSchedule) {
+        System.out.println("DEBUG: handleTVContentOverride called for TV " + tv + " with schedule: " + newSchedule.getTitle());
+        System.out.println("DEBUG: newSchedule.isImmediate(): " + newSchedule.isImmediate());
+        System.out.println("DEBUG: newSchedule.isDailySchedule(): " + newSchedule.isDailySchedule());
+        
         // Get all active immediate content for this TV
         List<ContentSchedule> existingImmediate = contentScheduleRepository.findImmediateForTV(tv);
+        System.out.println("DEBUG: Found " + existingImmediate.size() + " existing immediate content for TV " + tv);
         
         for (ContentSchedule existing : existingImmediate) {
+            System.out.println("DEBUG: Checking existing content: " + existing.getTitle() + " (active: " + existing.isActive() + ")");
             if (existing.isActive()) {
                 if (newSchedule.isImmediate()) {
+                    System.out.println("DEBUG: New immediate content overrides old immediate content - DISABLING " + existing.getTitle());
                     // New immediate content overrides old immediate content permanently
                     existing.setActive(false);
                     contentScheduleRepository.save(existing);
-                } else {
-                    // New scheduled content will temporarily override immediate content when it becomes active
+                } else if (!newSchedule.isDailySchedule()) {
+                    System.out.println("DEBUG: New time-scheduled content will override when active - storing reference for " + existing.getTitle());
+                    // New time-scheduled content will temporarily override immediate content when it becomes active
                     // Just store the reference for later use when the schedule actually starts
                     // DO NOT deactivate the existing content immediately
                     for (TimeSchedule timeSchedule : newSchedule.getTimeSchedules()) {
@@ -303,12 +372,16 @@ public class ContentScheduleService {
                     }
                     // Note: We don't deactivate the existing content here anymore
                     // It will be deactivated by the scheduled task when the time schedule becomes active
+                } else {
+                    System.out.println("DEBUG: New schedule is DAILY SCHEDULE - NOT affecting existing content " + existing.getTitle());
                 }
+                // For daily schedules, we do NOTHING here - let the scheduled task handle it
+                // Daily schedules will be managed by the scheduled task that checks if they're currently active
             }
         }
         
-        // Handle overlapping scheduled content
-        if (!newSchedule.isImmediate()) {
+        // Handle overlapping scheduled content (only for time-based schedules, not daily schedules)
+        if (!newSchedule.isImmediate() && !newSchedule.isDailySchedule()) {
             for (TimeSchedule newTimeSchedule : newSchedule.getTimeSchedules()) {
                 // Find any existing time schedules that overlap with this new one using the repository method
                 List<TimeSchedule> overlappingSchedules = timeScheduleRepository.findOverlappingForTV(
@@ -340,9 +413,12 @@ public class ContentScheduleService {
     @Scheduled(fixedRate = 60000) // Run every minute
     public void manageScheduledContent() {
         LocalDateTime now = LocalDateTime.now();
+        System.out.println("=== DEBUG: manageScheduledContent() running at: " + now + " ===");
         
         // 1. Handle starting schedules - deactivate content that should be temporarily disabled
         List<TimeSchedule> startingSchedules = timeScheduleRepository.findCurrentlyActive(now);
+        System.out.println("DEBUG: Found " + startingSchedules.size() + " currently active time schedules");
+        
         for (TimeSchedule startingSchedule : startingSchedules) {
             if (startingSchedule.isActive() && startingSchedule.getTemporarilyDisabledContentIds() != null && 
                 !startingSchedule.getTemporarilyDisabledContentIds().isEmpty()) {
@@ -356,6 +432,7 @@ public class ContentScheduleService {
                             ContentSchedule contentToDisable = contentToDisableOpt.get();
                             // Only disable if it's currently active and the schedule is currently running
                             if (contentToDisable.isActive() && startingSchedule.isCurrentlyActive(now)) {
+                                System.out.println("DEBUG: Disabling content ID " + disabledId + " due to active time schedule");
                                 contentToDisable.setActive(false);
                                 contentScheduleRepository.save(contentToDisable);
                             }
@@ -363,6 +440,70 @@ public class ContentScheduleService {
                     } catch (NumberFormatException e) {
                         System.err.println("Invalid content ID in temporarily disabled list: " + idStr);
                     }
+                }
+            }
+        }
+        
+        // 1.5. Handle daily schedules - manage content override based on daily schedule windows
+        List<ContentSchedule> allDailySchedules = contentScheduleRepository.findAll().stream()
+            .filter(cs -> cs.isDailySchedule() && cs.isActive())
+            .collect(Collectors.toList());
+        
+        System.out.println("DEBUG: Found " + allDailySchedules.size() + " active daily schedules");
+        System.out.println("DEBUG: Current time for comparison: " + now.toLocalTime());
+        
+        // Track which TVs have active daily schedules
+        Map<TVEnum, List<ContentSchedule>> activeDailySchedulesByTV = new HashMap<>();
+        
+        for (ContentSchedule dailySchedule : allDailySchedules) {
+            boolean isCurrentlyInWindow = dailySchedule.isDailyScheduleActive(now);
+            System.out.println("DEBUG: Daily schedule '" + dailySchedule.getTitle() + "' (ID: " + dailySchedule.getId() + ") - currently in window: " + isCurrentlyInWindow);
+            System.out.println("DEBUG: Schedule window: " + dailySchedule.getDailyStartTime() + " - " + dailySchedule.getDailyEndTime());
+            System.out.println("DEBUG: Target TVs: " + dailySchedule.getTargetTVs());
+            
+            if (isCurrentlyInWindow) {
+                for (TVEnum tv : dailySchedule.getTargetTVs()) {
+                    activeDailySchedulesByTV.computeIfAbsent(tv, k -> new ArrayList<>()).add(dailySchedule);
+                    System.out.println("DEBUG: Added daily schedule '" + dailySchedule.getTitle() + "' to active list for TV " + tv);
+                }
+            }
+        }
+        
+        // Get all TVs that have daily schedules configured (active or inactive)
+        Set<TVEnum> allTVsWithDailySchedules = new HashSet<>();
+        for (ContentSchedule dailySchedule : allDailySchedules) {
+            allTVsWithDailySchedules.addAll(dailySchedule.getTargetTVs());
+        }
+        
+        // For each TV, manage immediate content based on daily schedule status
+        for (TVEnum tv : allTVsWithDailySchedules) {
+            List<ContentSchedule> activeDailySchedulesForTV = activeDailySchedulesByTV.getOrDefault(tv, new ArrayList<>());
+            boolean hasActiveDailySchedule = !activeDailySchedulesForTV.isEmpty();
+            
+            // FIXED: Look for ALL immediate content (both active and inactive) for proper restoration
+            List<ContentSchedule> allImmediateForTV = contentScheduleRepository.findAll().stream()
+                .filter(cs -> cs.isImmediate() && cs.getTargetTVs().contains(tv))
+                .collect(Collectors.toList());
+            
+            System.out.println("DEBUG: TV " + tv + " - hasActiveDailySchedule: " + hasActiveDailySchedule + ", found " + allImmediateForTV.size() + " immediate content (active and inactive)");
+            
+            for (ContentSchedule existingContent : allImmediateForTV) {
+                System.out.println("DEBUG: Checking immediate content '" + existingContent.getTitle() + "' (ID: " + existingContent.getId() + ") - isActive: " + existingContent.isActive());
+                
+                if (hasActiveDailySchedule && existingContent.isActive()) {
+                    // Daily schedule is active - temporarily disable immediate content for this TV
+                    System.out.println("DEBUG: DISABLING immediate content '" + existingContent.getTitle() + "' (ID: " + existingContent.getId() + ") for TV " + tv + " due to active daily schedule(s): " + 
+                        activeDailySchedulesForTV.stream().map(ContentSchedule::getTitle).collect(Collectors.joining(", ")));
+                    existingContent.setActive(false);
+                    contentScheduleRepository.save(existingContent);
+                } else if (!hasActiveDailySchedule && !existingContent.isActive()) {
+                    // No daily schedules are active for this TV - restore immediate content
+                    System.out.println("DEBUG: RESTORING immediate content '" + existingContent.getTitle() + "' (ID: " + existingContent.getId() + ") for TV " + tv + " - no active daily schedules");
+                    existingContent.setActive(true);
+                    contentScheduleRepository.save(existingContent);
+                } else {
+                    System.out.println("DEBUG: No action needed for immediate content '" + existingContent.getTitle() + "' (ID: " + existingContent.getId() + ") for TV " + tv + 
+                        " - hasActiveDailySchedule: " + hasActiveDailySchedule + ", isActive: " + existingContent.isActive());
                 }
             }
         }
@@ -413,7 +554,7 @@ public class ContentScheduleService {
         // 3. Deactivate content schedules that only had timed content and all their time schedules are now expired
         List<ContentSchedule> allContentSchedules = contentScheduleRepository.findAll();
         for (ContentSchedule contentSchedule : allContentSchedules) {
-            if (!contentSchedule.isImmediate() && contentSchedule.isActive()) {
+            if (!contentSchedule.isImmediate() && !contentSchedule.isDailySchedule() && contentSchedule.isActive()) {
                 // Check if all time schedules for this content are expired or inactive
                 boolean hasActiveTimeSchedule = contentSchedule.getTimeSchedules().stream()
                     .anyMatch(ts -> ts.isActive() && !ts.isExpired(now));

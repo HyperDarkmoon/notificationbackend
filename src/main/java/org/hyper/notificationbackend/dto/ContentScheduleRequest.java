@@ -1,5 +1,6 @@
 package org.hyper.notificationbackend.dto;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
@@ -16,7 +17,11 @@ public class ContentScheduleRequest {
     // Add active field to support frontend requirements
     private boolean active = true;
     
+    // Add immediate field to support frontend requirements
+    private boolean isImmediate = false;
+    
     // Daily schedule fields
+    @JsonProperty("isDailySchedule")
     private boolean isDailySchedule = false;
     private String dailyStartTime; // Format: "HH:MM"
     private String dailyEndTime; // Format: "HH:MM"
@@ -134,6 +139,14 @@ public class ContentScheduleRequest {
         this.active = active;
     }
     
+    public boolean isImmediate() {
+        return isImmediate;
+    }
+    
+    public void setImmediate(boolean immediate) {
+        this.isImmediate = immediate;
+    }
+    
     public List<TimeScheduleRequest> getTimeSchedules() {
         return timeSchedules;
     }
@@ -190,6 +203,7 @@ public class ContentScheduleRequest {
                 ", contentType='" + contentType + '\'' +
                 ", targetTVs=" + targetTVs +
                 ", active=" + active +
+                ", isImmediate=" + isImmediate +
                 ", isDailySchedule=" + isDailySchedule +
                 ", dailyStartTime='" + dailyStartTime + '\'' +
                 ", dailyEndTime='" + dailyEndTime + '\'' +

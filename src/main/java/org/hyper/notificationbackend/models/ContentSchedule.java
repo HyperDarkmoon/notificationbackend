@@ -48,7 +48,7 @@ public class ContentSchedule {
     
     // Flag to indicate if this is immediate/unscheduled content
     @Column(name = "is_immediate")
-    private boolean immediate = false;
+    private Boolean immediate = false;
     
     // Daily schedule fields
     @Column(name = "is_daily_schedule")
@@ -198,10 +198,10 @@ public class ContentSchedule {
     
     // Daily schedule getters and setters
     public boolean isDailySchedule() {
-        return dailySchedule != null ? dailySchedule : false;
+        return dailySchedule != null && dailySchedule;
     }
     
-    public void setDailySchedule(Boolean dailySchedule) {
+    public void setDailySchedule(boolean dailySchedule) {
         this.dailySchedule = dailySchedule;
     }
     
@@ -255,7 +255,7 @@ public class ContentSchedule {
     }
     
     public boolean isImmediate() {
-        return immediate;
+        return immediate != null && immediate;
     }
     
     public void setImmediate(boolean immediate) {
@@ -264,11 +264,11 @@ public class ContentSchedule {
     
     // Helper method to check if content is currently active based on time schedules
     public boolean isCurrentlyActiveBySchedule(LocalDateTime currentTime) {
-        if (immediate) {
+        if (isImmediate()) {
             return active; // Immediate content is always active if the flag is true
         }
         
-        if (dailySchedule != null && dailySchedule) {
+        if (isDailySchedule()) {
             return isDailyScheduleActive(currentTime);
         }
         
@@ -279,7 +279,7 @@ public class ContentSchedule {
     
     // Helper method to check if daily schedule is currently active
     public boolean isDailyScheduleActive(LocalDateTime currentTime) {
-        if (dailySchedule == null || !dailySchedule || dailyStartTime == null || dailyEndTime == null) {
+        if (!isDailySchedule() || dailyStartTime == null || dailyEndTime == null) {
             return false;
         }
         
