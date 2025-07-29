@@ -48,11 +48,18 @@ public class ContentScheduleService {
             contentSchedule.setTargetTVs(targetTVs);
         }
         
-        // Handle time schedules - support both new format and legacy format
+        // Handle time schedules - support daily schedule, multiple schedules, and legacy format
         List<TimeSchedule> timeSchedules = new ArrayList<>();
         
-        // First, check if we have new format time schedules (multiple schedules)
-        if (request.getTimeSchedules() != null && !request.getTimeSchedules().isEmpty()) {
+        // First, check if this is a daily schedule
+        if (request.isDailySchedule()) {
+            contentSchedule.setDailySchedule(true);
+            contentSchedule.setDailyStartTime(request.getDailyStartTime());
+            contentSchedule.setDailyEndTime(request.getDailyEndTime());
+            contentSchedule.setImmediate(false);
+        }
+        // Check if we have new format time schedules (multiple schedules)
+        else if (request.getTimeSchedules() != null && !request.getTimeSchedules().isEmpty()) {
             for (ContentScheduleRequest.TimeScheduleRequest tsRequest : request.getTimeSchedules()) {
                 TimeSchedule timeSchedule = new TimeSchedule();
                 timeSchedule.setStartTime(tsRequest.getStartTime());
@@ -180,6 +187,16 @@ public class ContentScheduleService {
             ContentSchedule content = timeSchedule.getContentSchedule();
             if (content.isActive() && !result.contains(content)) {
                 result.add(content);
+            }
+        }
+        
+        // Next, check for daily scheduled content that's currently active
+        if (result.isEmpty()) {
+            List<ContentSchedule> dailySchedules = contentScheduleRepository.findDailyScheduleForTV(tv);
+            for (ContentSchedule content : dailySchedules) {
+                if (content.isActive() && content.isDailyScheduleActive(now) && !result.contains(content)) {
+                    result.add(content);
+                }
             }
         }
         
@@ -421,10 +438,10 @@ public class ContentScheduleService {
                 if (timeSchedule.getStartTime().isAfter(timeSchedule.getEndTime())) {
                     throw new IllegalArgumentException("Start time must be before end time for scheduled content");
                 }
-                // Check that the schedule is not in the past (optional)
+                // Check that the schedule is not starting in the past (allow future scheduling)
                 LocalDateTime now = LocalDateTime.now();
-                if (timeSchedule.getEndTime().isBefore(now)) {
-                    throw new IllegalArgumentException("Cannot schedule content in the past");
+                if (timeSchedule.getStartTime().isBefore(now)) {
+                    throw new IllegalArgumentException("Cannot schedule content to start in the past");
                 }
             }
         }

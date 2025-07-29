@@ -3,7 +3,6 @@ package org.hyper.notificationbackend.repositories;
 import org.hyper.notificationbackend.models.ProfileTimeSchedule;
 import org.hyper.notificationbackend.models.TVProfile;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -46,10 +45,8 @@ public interface ProfileTimeScheduleRepository extends JpaRepository<ProfileTime
                                                       @Param("endTime") LocalDateTime endTime);
     
     // Delete all schedules for a profile
-    @Modifying
     void deleteByTvProfile(TVProfile profile);
     
     // Delete all schedules for a profile ID
-    @Modifying
     void deleteByTvProfileId(Long profileId);
 }

@@ -29,37 +29,18 @@ public class TVProfileController {
     @PostMapping
     public ResponseEntity<?> createProfile(@RequestBody TVProfile profile) {
         try {
-            // Debug logging
-            System.out.println("Creating profile:");
-            System.out.println("- Name: " + profile.getName());
-            System.out.println("- isImmediate: " + profile.isImmediate());
-            System.out.println("- timeSchedules count: " + (profile.getTimeSchedules() != null ? profile.getTimeSchedules().size() : 0));
-            
-            if (profile.getTimeSchedules() != null) {
-                for (ProfileTimeSchedule schedule : profile.getTimeSchedules()) {
-                    System.out.println("- Schedule: " + schedule.getStartTime() + " to " + schedule.getEndTime());
-                }
-            }
-            
             TVProfile newProfile = profileService.createProfile(profile);
-            System.out.println("Profile created with ID: " + newProfile.getId() + ", isImmediate: " + newProfile.isImmediate());
             return ResponseEntity.ok(newProfile);
         } catch (Exception e) {
-            System.err.println("Error creating profile: " + e.getMessage());
-            e.printStackTrace();
             return ResponseEntity.badRequest().body("Error: " + e.getMessage());
         }
     }
     
     // Get all profiles
     @GetMapping
-    public ResponseEntity<?> getAllProfiles() {
-        try {
-            List<TVProfile> profiles = profileService.getAllProfiles();
-            return ResponseEntity.ok(profiles);
-        } catch (Exception e) {
-            return ResponseEntity.status(500).body("Error fetching profiles: " + e.getMessage());
-        }
+    public ResponseEntity<List<TVProfile>> getAllProfiles() {
+        List<TVProfile> profiles = profileService.getAllProfiles();
+        return ResponseEntity.ok(profiles);
     }
     
     // Get profile by ID
@@ -137,37 +118,19 @@ public class TVProfileController {
                 TVProfileAssignment tvAssignment = assignment.get();
                 TVProfile profile = tvAssignment.getProfile();
                 
-                // Debug logging
-                System.out.println("Profile ID: " + profile.getId());
-                System.out.println("Profile Name: " + profile.getName());
-                System.out.println("Profile isImmediate: " + profile.isImmediate());
-                System.out.println("Profile timeSchedules count: " + (profile.getTimeSchedules() != null ? profile.getTimeSchedules().size() : 0));
-                
-                if (profile.getTimeSchedules() != null) {
-                    for (ProfileTimeSchedule schedule : profile.getTimeSchedules()) {
-                        System.out.println("Schedule: " + schedule.getStartTime() + " to " + schedule.getEndTime() + " (active: " + schedule.isActive() + ")");
-                    }
-                }
-                
                 // Check if profile is currently active based on its schedule
                 boolean isProfileCurrentlyActive = profileService.isProfileCurrentlyActive(profile.getId());
-                System.out.println("Profile currently active: " + isProfileCurrentlyActive);
                 
                 // If profile is not currently active due to schedule, return null
                 if (!isProfileCurrentlyActive) {
-                    System.out.println("Profile not currently active, returning null");
                     return ResponseEntity.ok(null);
                 }
                 
-                System.out.println("Profile is active, returning assignment");
                 return ResponseEntity.ok(tvAssignment);
             } else {
-                System.out.println("No assignment found for TV: " + tvName);
                 return ResponseEntity.ok(null);
             }
         } catch (Exception e) {
-            System.err.println("Error in getCurrentProfileAssignmentForTV: " + e.getMessage());
-            e.printStackTrace();
             return ResponseEntity.badRequest().body("Error: " + e.getMessage());
         }
     }
@@ -217,12 +180,12 @@ public class TVProfileController {
     
     // Get all time schedules for a profile
     @GetMapping("/{id}/schedules")
-    public ResponseEntity<?> getProfileTimeSchedules(@PathVariable("id") Long profileId) {
+    public ResponseEntity<List<ProfileTimeSchedule>> getProfileTimeSchedules(@PathVariable("id") Long profileId) {
         try {
             List<ProfileTimeSchedule> schedules = profileService.getProfileTimeSchedules(profileId);
             return ResponseEntity.ok(schedules);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+            return ResponseEntity.badRequest().build();
         }
     }
     
@@ -252,35 +215,12 @@ public class TVProfileController {
     
     // Get all currently active profiles
     @GetMapping("/currently-active")
-    public ResponseEntity<?> getCurrentlyActiveProfiles() {
+    public ResponseEntity<List<TVProfile>> getCurrentlyActiveProfiles() {
         try {
             List<TVProfile> activeProfiles = profileService.getCurrentlyActiveProfiles();
             return ResponseEntity.ok(activeProfiles);
         } catch (Exception e) {
-            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
-        }
-    }
-    
-    // Fix profiles with inconsistent scheduling states (has schedules but isImmediate=true)
-    @PostMapping("/fix-scheduling")
-    public ResponseEntity<?> fixProfileSchedulingInconsistencies() {
-        try {
-            List<TVProfile> allProfiles = profileService.getAllProfiles();
-            int fixedCount = 0;
-            
-            for (TVProfile profile : allProfiles) {
-                // If profile has time schedules but is marked as immediate, fix it
-                if (profile.isImmediate() && profile.getTimeSchedules() != null && !profile.getTimeSchedules().isEmpty()) {
-                    profile.setImmediate(false);
-                    profileService.updateProfile(profile.getId(), profile);
-                    fixedCount++;
-                    System.out.println("Fixed profile " + profile.getId() + " (" + profile.getName() + ") - set isImmediate to false");
-                }
-            }
-            
-            return ResponseEntity.ok(Map.of("message", "Fixed " + fixedCount + " profiles with scheduling inconsistencies"));
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
+            return ResponseEntity.badRequest().build();
         }
     }
 }

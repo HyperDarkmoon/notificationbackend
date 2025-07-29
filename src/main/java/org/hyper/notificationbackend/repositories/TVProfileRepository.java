@@ -18,12 +18,12 @@ public interface TVProfileRepository extends JpaRepository<TVProfile, Long> {
     // Find profile by name
     Optional<TVProfile> findByNameAndActiveTrue(String name);
     
-    // Find profiles with slides fetched  
-    @Query("SELECT p FROM TVProfile p LEFT JOIN FETCH p.slides WHERE p.active = true ORDER BY p.name ASC")
+    // Find profiles with slides fetched
+    @Query("SELECT p FROM TVProfile p LEFT JOIN FETCH p.slides s WHERE p.active = true ORDER BY p.name ASC")
     List<TVProfile> findAllActiveWithSlides();
     
     // Find profile by ID with slides fetched
-    @Query("SELECT p FROM TVProfile p LEFT JOIN FETCH p.slides WHERE p.id = :id AND p.active = true")
+    @Query("SELECT p FROM TVProfile p LEFT JOIN FETCH p.slides s WHERE p.id = :id AND p.active = true")
     Optional<TVProfile> findByIdWithSlides(@Param("id") Long id);
     
     // Find profiles by name containing (case insensitive)

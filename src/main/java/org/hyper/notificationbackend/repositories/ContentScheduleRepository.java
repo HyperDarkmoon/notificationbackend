@@ -33,6 +33,10 @@ public interface ContentScheduleRepository extends JpaRepository<ContentSchedule
     @Query("SELECT c FROM ContentSchedule c JOIN c.targetTVs t WHERE t = ?1 AND c.active = true AND c.immediate = true")
     List<ContentSchedule> findImmediateForTV(TVEnum tv);
     
+    // Find daily scheduled content for a specific TV
+    @Query("SELECT c FROM ContentSchedule c JOIN c.targetTVs t WHERE t = ?1 AND c.active = true AND c.dailySchedule = true")
+    List<ContentSchedule> findDailyScheduleForTV(TVEnum tv);
+    
     // Find upcoming schedules for a specific TV (deprecated - use TimeScheduleRepository instead)
     @Deprecated
     @Query("SELECT c FROM ContentSchedule c JOIN c.targetTVs t WHERE t = ?1 AND c.active = true AND c.startTime > ?2 ORDER BY c.startTime ASC")

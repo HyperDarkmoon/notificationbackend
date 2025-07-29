@@ -16,6 +16,11 @@ public class ContentScheduleRequest {
     // Add active field to support frontend requirements
     private boolean active = true;
     
+    // Daily schedule fields
+    private boolean isDailySchedule = false;
+    private String dailyStartTime; // Format: "HH:MM"
+    private String dailyEndTime; // Format: "HH:MM"
+    
     // Multiple time schedules support
     private List<TimeScheduleRequest> timeSchedules;
     
@@ -153,6 +158,31 @@ public class ContentScheduleRequest {
         this.endTime = endTime;
     }
     
+    // Daily schedule getters and setters
+    public boolean isDailySchedule() {
+        return isDailySchedule;
+    }
+    
+    public void setDailySchedule(boolean dailySchedule) {
+        this.isDailySchedule = dailySchedule;
+    }
+    
+    public String getDailyStartTime() {
+        return dailyStartTime;
+    }
+    
+    public void setDailyStartTime(String dailyStartTime) {
+        this.dailyStartTime = dailyStartTime;
+    }
+    
+    public String getDailyEndTime() {
+        return dailyEndTime;
+    }
+    
+    public void setDailyEndTime(String dailyEndTime) {
+        this.dailyEndTime = dailyEndTime;
+    }
+    
     @Override
     public String toString() {
         return "ContentScheduleRequest{" +
@@ -160,6 +190,9 @@ public class ContentScheduleRequest {
                 ", contentType='" + contentType + '\'' +
                 ", targetTVs=" + targetTVs +
                 ", active=" + active +
+                ", isDailySchedule=" + isDailySchedule +
+                ", dailyStartTime='" + dailyStartTime + '\'' +
+                ", dailyEndTime='" + dailyEndTime + '\'' +
                 ", timeSchedules=" + timeSchedules +
                 ", startTime=" + startTime +
                 ", endTime=" + endTime +

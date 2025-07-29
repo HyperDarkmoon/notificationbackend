@@ -26,28 +26,7 @@ public class TVProfileService {
     
     // Create a new profile
     public TVProfile createProfile(TVProfile profile) {
-        // Auto-fix inconsistent scheduling state
-        if (profile.isImmediate() && profile.getTimeSchedules() != null && !profile.getTimeSchedules().isEmpty()) {
-            System.out.println("Auto-correcting profile: has time schedules but isImmediate=true, setting to false");
-            profile.setImmediate(false);
-        }
-        
         validateProfile(profile);
-        
-        // Set the profile reference for all slides
-        if (profile.getSlides() != null) {
-            for (ProfileSlide slide : profile.getSlides()) {
-                slide.setProfile(profile);
-            }
-        }
-        
-        // Set the profile reference for all time schedules
-        if (profile.getTimeSchedules() != null) {
-            for (ProfileTimeSchedule schedule : profile.getTimeSchedules()) {
-                schedule.setTvProfile(profile);
-            }
-        }
-        
         return tvProfileRepository.save(profile);
     }
     
@@ -90,12 +69,6 @@ public class TVProfileService {
                     schedule.setTvProfile(profile);
                     profile.addTimeSchedule(schedule);
                 }
-            }
-            
-            // Auto-fix inconsistent scheduling state
-            if (profile.isImmediate() && profile.getTimeSchedules() != null && !profile.getTimeSchedules().isEmpty()) {
-                System.out.println("Auto-correcting profile during update: has time schedules but isImmediate=true, setting to false");
-                profile.setImmediate(false);
             }
             
             validateProfile(profile);
@@ -196,27 +169,25 @@ public class TVProfileService {
     public boolean isProfileCurrentlyActive(Long profileId) {
         Optional<TVProfile> profileOpt = getProfileById(profileId);
         if (!profileOpt.isPresent() || !profileOpt.get().isActive()) {
-            System.out.println("Profile " + profileId + " not found or not active");
             return false;
         }
         
         TVProfile profile = profileOpt.get();
         
-        System.out.println("Checking profile " + profileId + " (isImmediate: " + profile.isImmediate() + ")");
-        
         // If profile is set to immediate, it's always active
         if (profile.isImmediate()) {
-            System.out.println("Profile " + profileId + " is immediate, returning true");
             return true;
         }
         
-        // Check if any time schedules are currently active
         LocalDateTime now = LocalDateTime.now();
-        System.out.println("Current time: " + now);
-        boolean hasActiveSchedules = profileTimeScheduleRepository.hasActiveSchedules(profile, now);
-        System.out.println("Profile " + profileId + " has active schedules: " + hasActiveSchedules);
         
-        return hasActiveSchedules;
+        // Check if daily schedule is active
+        if (profile.isDailySchedule()) {
+            return profile.isDailyScheduleActive(now);
+        }
+        
+        // Check if any time schedules are currently active
+        return profileTimeScheduleRepository.hasActiveSchedules(profile, now);
     }
     
     // Get all currently active profiles (considering schedules)

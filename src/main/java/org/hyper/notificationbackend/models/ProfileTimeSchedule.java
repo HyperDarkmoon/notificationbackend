@@ -1,13 +1,11 @@
 package org.hyper.notificationbackend.models;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "profile_time_schedules")
-@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class ProfileTimeSchedule {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
