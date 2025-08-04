@@ -596,11 +596,11 @@ public class ContentScheduleService {
             (schedule.getImageUrls() == null || schedule.getImageUrls().size() < 1)) {
             throw new IllegalArgumentException("Single image content type requires at least one image URL");
         } else if (schedule.getContentType() == ContentSchedule.ContentType.IMAGE_DUAL && 
-                  (schedule.getImageUrls() == null || schedule.getImageUrls().size() < 2)) {
-            throw new IllegalArgumentException("Dual image content type requires at least two image URLs");
+                  (schedule.getImageUrls() == null || schedule.getImageUrls().size() < 1)) {
+            throw new IllegalArgumentException("Dual image content type requires at least one image URL");
         } else if (schedule.getContentType() == ContentSchedule.ContentType.IMAGE_QUAD && 
-                  (schedule.getImageUrls() == null || schedule.getImageUrls().size() < 4)) {
-            throw new IllegalArgumentException("Quad image content type requires at least four image URLs");
+                  (schedule.getImageUrls() == null || schedule.getImageUrls().size() < 1)) {
+            throw new IllegalArgumentException("Quad image content type requires at least one image URL");
         } else if (schedule.getContentType() == ContentSchedule.ContentType.VIDEO && 
                   (schedule.getVideoUrls() == null || schedule.getVideoUrls().size() != 1)) {
             throw new IllegalArgumentException("Video content type requires exactly one video URL");

@@ -146,13 +146,13 @@ public class TVProfileService {
                 }
                 break;
             case IMAGE_DUAL:
-                if (slide.getImageUrls() == null || slide.getImageUrls().size() < 2) {
-                    throw new IllegalArgumentException("At least two image URLs are required for IMAGE_DUAL type slides");
+                if (slide.getImageUrls() == null || slide.getImageUrls().isEmpty()) {
+                    throw new IllegalArgumentException("At least one image URL is required for IMAGE_DUAL type slides");
                 }
                 break;
             case IMAGE_QUAD:
-                if (slide.getImageUrls() == null || slide.getImageUrls().size() < 4) {
-                    throw new IllegalArgumentException("At least four image URLs are required for IMAGE_QUAD type slides");
+                if (slide.getImageUrls() == null || slide.getImageUrls().isEmpty()) {
+                    throw new IllegalArgumentException("At least one image URL is required for IMAGE_QUAD type slides");
                 }
                 break;
             case VIDEO:
