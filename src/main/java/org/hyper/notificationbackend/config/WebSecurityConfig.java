@@ -52,11 +52,16 @@ public class WebSecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         // Auth endpoints
                         .requestMatchers("/api/auth/**").permitAll()
+                        // Static file access - allow public access to uploaded files
+                        .requestMatchers("/uploads/**").permitAll()
                         // TV content viewing endpoints - public access for TVs
                         .requestMatchers("/api/content/tv/**").permitAll()
-                        // File upload endpoints - temporarily permit all to avoid CORS issues
+                        // Profile endpoints for TVs - public access
+                        .requestMatchers("/api/profiles/tv/**").permitAll()
+                        // File upload endpoints - permit all to avoid CORS issues
                         .requestMatchers(HttpMethod.POST, "/api/content/upload-file").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/content/upload-files").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/content/from-request").permitAll()
                         .requestMatchers(HttpMethod.DELETE, "/api/content/delete-file/**").hasRole("ADMIN")
                         // Content management endpoints - require admin role
                         .requestMatchers(HttpMethod.GET, "/api/content/all").hasRole("ADMIN")
@@ -67,6 +72,14 @@ public class WebSecurityConfig {
                         .requestMatchers(HttpMethod.PUT, "/api/content/**").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/content/**").hasRole("ADMIN")
                         .requestMatchers("/api/content/**").hasRole("ADMIN")
+                        // Profile management endpoints - require admin role
+                        .requestMatchers(HttpMethod.GET, "/api/profiles").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/profiles").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.PUT, "/api/profiles/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/profiles/**").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.GET, "/api/profiles/assignments").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.POST, "/api/profiles/assign").hasRole("ADMIN")
+                        .requestMatchers(HttpMethod.DELETE, "/api/profiles/assignments/**").hasRole("ADMIN")
                         // Other admin endpoints
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/tv/**").permitAll()
@@ -81,8 +94,15 @@ public class WebSecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:3000")); // explicitly allow your frontend
-        configuration.setAllowCredentials(false); // Set to false for non-authenticated uploads
+        // Allow both localhost and network IP for development and testing
+        configuration.setAllowedOrigins(List.of(
+            "http://localhost:3000",           // For local development
+            "http://172.16.1.12:3000",         // For network access
+            "http://127.0.0.1:3000"            // Alternative localhost
+        )); 
+        // Alternative: Use setAllowedOriginPatterns for more flexible matching
+        // configuration.setAllowedOriginPatterns(List.of("http://172.16.1.*:3000", "http://localhost:*", "http://127.0.0.1:*"));
+        configuration.setAllowCredentials(true); // Set to true for authenticated requests
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*")); // Allow all headers for file uploads
         configuration.setExposedHeaders(List.of("Authorization", "X-Auth-Token"));
