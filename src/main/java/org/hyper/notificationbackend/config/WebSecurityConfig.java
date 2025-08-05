@@ -54,6 +54,10 @@ public class WebSecurityConfig {
                         .requestMatchers("/api/auth/**").permitAll()
                         // TV content viewing endpoints - public access for TVs
                         .requestMatchers("/api/content/tv/**").permitAll()
+                        // File upload endpoints - temporarily permit all to avoid CORS issues
+                        .requestMatchers(HttpMethod.POST, "/api/content/upload-file").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/content/upload-files").permitAll()
+                        .requestMatchers(HttpMethod.DELETE, "/api/content/delete-file/**").hasRole("ADMIN")
                         // Content management endpoints - require admin role
                         .requestMatchers(HttpMethod.GET, "/api/content/all").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.GET, "/api/content/active").hasRole("ADMIN")
@@ -78,11 +82,11 @@ public class WebSecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(List.of("http://localhost:3000")); // explicitly allow your frontend
-        configuration.setAllowCredentials(true);
+        configuration.setAllowCredentials(false); // Set to false for non-authenticated uploads
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        configuration
-                .setAllowedHeaders(List.of("Authorization", "Content-Type", "X-Requested-With", "Accept", "Origin"));
+        configuration.setAllowedHeaders(List.of("*")); // Allow all headers for file uploads
         configuration.setExposedHeaders(List.of("Authorization", "X-Auth-Token"));
+        configuration.setMaxAge(3600L); // Cache preflight for 1 hour
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;

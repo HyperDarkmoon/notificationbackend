@@ -602,8 +602,8 @@ public class ContentScheduleService {
                   (schedule.getImageUrls() == null || schedule.getImageUrls().size() < 1)) {
             throw new IllegalArgumentException("Quad image content type requires at least one image URL");
         } else if (schedule.getContentType() == ContentSchedule.ContentType.VIDEO && 
-                  (schedule.getVideoUrls() == null || schedule.getVideoUrls().size() != 1)) {
-            throw new IllegalArgumentException("Video content type requires exactly one video URL");
+                  (schedule.getVideoUrls() == null || schedule.getVideoUrls().size() < 1)) {
+            throw new IllegalArgumentException("Video content type requires at least one video URL");
         } else if (schedule.getContentType() == ContentSchedule.ContentType.EMBED && 
                   (schedule.getContent() == null || schedule.getContent().isEmpty())) {
             throw new IllegalArgumentException("Embed content type requires embed content");
