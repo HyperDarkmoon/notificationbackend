@@ -1,8 +1,10 @@
 package org.hyper.notificationbackend.controllers;
 
 import org.hyper.notificationbackend.models.ContentSchedule;
+import org.hyper.notificationbackend.models.TV;
 import org.hyper.notificationbackend.models.TVEnum;
 import org.hyper.notificationbackend.services.ContentScheduleService;
+import org.hyper.notificationbackend.services.TVService;
 import org.hyper.notificationbackend.dto.ContentScheduleRequest;
 import org.hyper.notificationbackend.dto.ContentScheduleResponse;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -22,6 +24,9 @@ public class ContentScheduleController {
 
     @Autowired
     private ContentScheduleService contentScheduleService;
+    
+    @Autowired
+    private TVService tvService;
     
     // Create a new content schedule
     @PostMapping
@@ -99,14 +104,29 @@ public class ContentScheduleController {
     @GetMapping("/tv/{tvName}")
     public ResponseEntity<?> getSchedulesForTV(@PathVariable("tvName") String tvName) {
         try {
-            TVEnum tv = TVEnum.valueOf(tvName);
-            List<ContentSchedule> schedules = contentScheduleService.getSchedulesForTV(tv);
-            List<ContentScheduleResponse> responses = schedules.stream()
-                .map(ContentScheduleResponse::fromEntity)
-                .collect(Collectors.toList());
-            return ResponseEntity.ok(responses);
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body("Invalid TV name: " + tvName);
+            // First try to find as a TV entity
+            Optional<TV> tvEntity = tvService.getTVByName(tvName);
+            if (tvEntity.isPresent()) {
+                List<ContentSchedule> schedules = contentScheduleService.getSchedulesForTV(tvEntity.get());
+                List<ContentScheduleResponse> responses = schedules.stream()
+                    .map(ContentScheduleResponse::fromEntity)
+                    .collect(Collectors.toList());
+                return ResponseEntity.ok(responses);
+            }
+            
+            // Fallback to TVEnum for backward compatibility
+            try {
+                TVEnum tvEnum = TVEnum.valueOf(tvName);
+                List<ContentSchedule> schedules = contentScheduleService.getSchedulesForTV(tvEnum);
+                List<ContentScheduleResponse> responses = schedules.stream()
+                    .map(ContentScheduleResponse::fromEntity)
+                    .collect(Collectors.toList());
+                return ResponseEntity.ok(responses);
+            } catch (IllegalArgumentException enumException) {
+                return ResponseEntity.badRequest().body("Invalid TV name: " + tvName + ". TV not found in database or enum.");
+            }
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
         }
     }
     
@@ -114,14 +134,29 @@ public class ContentScheduleController {
     @GetMapping("/tv/{tvName}/upcoming")
     public ResponseEntity<?> getUpcomingSchedulesForTV(@PathVariable("tvName") String tvName) {
         try {
-            TVEnum tv = TVEnum.valueOf(tvName);
-            List<ContentSchedule> schedules = contentScheduleService.getUpcomingSchedulesForTV(tv);
-            List<ContentScheduleResponse> responses = schedules.stream()
-                .map(ContentScheduleResponse::fromEntity)
-                .collect(Collectors.toList());
-            return ResponseEntity.ok(responses);
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body("Invalid TV name: " + tvName);
+            // First try to find as a TV entity
+            Optional<TV> tvEntity = tvService.getTVByName(tvName);
+            if (tvEntity.isPresent()) {
+                List<ContentSchedule> schedules = contentScheduleService.getUpcomingSchedulesForTV(tvEntity.get());
+                List<ContentScheduleResponse> responses = schedules.stream()
+                    .map(ContentScheduleResponse::fromEntity)
+                    .collect(Collectors.toList());
+                return ResponseEntity.ok(responses);
+            }
+            
+            // Fallback to TVEnum for backward compatibility
+            try {
+                TVEnum tvEnum = TVEnum.valueOf(tvName);
+                List<ContentSchedule> schedules = contentScheduleService.getUpcomingSchedulesForTV(tvEnum);
+                List<ContentScheduleResponse> responses = schedules.stream()
+                    .map(ContentScheduleResponse::fromEntity)
+                    .collect(Collectors.toList());
+                return ResponseEntity.ok(responses);
+            } catch (IllegalArgumentException enumException) {
+                return ResponseEntity.badRequest().body("Invalid TV name: " + tvName + ". TV not found in database or enum.");
+            }
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
         }
     }
     
@@ -177,10 +212,23 @@ public class ContentScheduleController {
     public ResponseEntity<?> getCurrentContentForTV(@PathVariable("tvName") String tvName,
                                                     @RequestParam(value = "imageIndex", defaultValue = "0") int imageIndex) {
         try {
-            TVEnum tv = TVEnum.valueOf(tvName);
-            List<ContentSchedule> currentContent = contentScheduleService.getSchedulesForTV(tv);
+            List<ContentSchedule> currentContent = null;
             
-            if (currentContent.isEmpty()) {
+            // First try to find as a TV entity
+            Optional<TV> tvEntity = tvService.getTVByName(tvName);
+            if (tvEntity.isPresent()) {
+                currentContent = contentScheduleService.getSchedulesForTV(tvEntity.get());
+            } else {
+                // Fallback to TVEnum for backward compatibility
+                try {
+                    TVEnum tvEnum = TVEnum.valueOf(tvName);
+                    currentContent = contentScheduleService.getSchedulesForTV(tvEnum);
+                } catch (IllegalArgumentException enumException) {
+                    return ResponseEntity.badRequest().body("Invalid TV name: " + tvName + ". TV not found in database or enum.");
+                }
+            }
+            
+            if (currentContent == null || currentContent.isEmpty()) {
                 return ResponseEntity.ok(Map.of("message", "No active content for this TV"));
             }
             
@@ -244,10 +292,23 @@ public class ContentScheduleController {
     @GetMapping("/tv/{tvName}/rotation-info")
     public ResponseEntity<?> getRotationInfo(@PathVariable("tvName") String tvName) {
         try {
-            TVEnum tv = TVEnum.valueOf(tvName);
-            List<ContentSchedule> currentContent = contentScheduleService.getSchedulesForTV(tv);
+            List<ContentSchedule> currentContent = null;
             
-            if (currentContent.isEmpty()) {
+            // First try to find as a TV entity
+            Optional<TV> tvEntity = tvService.getTVByName(tvName);
+            if (tvEntity.isPresent()) {
+                currentContent = contentScheduleService.getSchedulesForTV(tvEntity.get());
+            } else {
+                // Fallback to TVEnum for backward compatibility
+                try {
+                    TVEnum tvEnum = TVEnum.valueOf(tvName);
+                    currentContent = contentScheduleService.getSchedulesForTV(tvEnum);
+                } catch (IllegalArgumentException enumException) {
+                    return ResponseEntity.badRequest().body("Invalid TV name: " + tvName + ". TV not found in database or enum.");
+                }
+            }
+            
+            if (currentContent == null || currentContent.isEmpty()) {
                 return ResponseEntity.ok(Map.of("hasRotation", false, "message", "No active content"));
             }
             
@@ -291,16 +352,41 @@ public class ContentScheduleController {
     @GetMapping("/debug/tv/{tvName}")
     public ResponseEntity<?> debugTVContent(@PathVariable("tvName") String tvName) {
         try {
-            TVEnum tv = TVEnum.valueOf(tvName);
             LocalDateTime now = LocalDateTime.now();
             
-            // Get all schedules for this TV
-            List<ContentSchedule> allSchedules = contentScheduleService.getAllSchedules().stream()
-                .filter(s -> s.getTargetTVs().contains(tv))
-                .toList();
+            // Try to find as a TV entity first
+            Optional<TV> tvEntity = tvService.getTVByName(tvName);
+            
+            List<ContentSchedule> allSchedules;
+            List<ContentSchedule> currentContent;
+            
+            if (tvEntity.isPresent()) {
+                TV tv = tvEntity.get();
+                // Get all schedules for this TV entity
+                allSchedules = contentScheduleService.getAllSchedules().stream()
+                    .filter(s -> s.getTargetTVs().contains(tv))
+                    .toList();
+                currentContent = contentScheduleService.getSchedulesForTV(tv);
+            } else {
+                // Fallback to TVEnum for backward compatibility
+                try {
+                    TVEnum tvEnum = TVEnum.valueOf(tvName);
+                    // For enum-based schedules, we need to check if the contentScheduleService supports finding by TVEnum
+                    // This will work if the service has backward compatibility methods
+                    allSchedules = contentScheduleService.getAllSchedules().stream()
+                        .filter(s -> s.getTargetTVs().stream()
+                            .anyMatch(targetTv -> targetTv.getName().equals(tvEnum.name())))
+                        .toList();
+                    currentContent = contentScheduleService.getSchedulesForTV(tvEnum);
+                } catch (IllegalArgumentException enumException) {
+                    return ResponseEntity.badRequest().body("Invalid TV name: " + tvName + ". TV not found in database or enum.");
+                }
+            }
             
             Map<String, Object> debugInfo = new HashMap<>();
             debugInfo.put("currentTime", now);
+            debugInfo.put("tvName", tvName);
+            debugInfo.put("tvFoundInDatabase", tvEntity.isPresent());
             debugInfo.put("totalSchedulesForTV", allSchedules.size());
             debugInfo.put("activeSchedules", allSchedules.stream().filter(s -> s.isActive()).count());
             debugInfo.put("timedSchedules", allSchedules.stream()
@@ -311,7 +397,6 @@ public class ContentScheduleController {
                 .count());
             
             // Check current content
-            List<ContentSchedule> currentContent = contentScheduleService.getSchedulesForTV(tv);
             debugInfo.put("currentContentCount", currentContent.size());
             if (!currentContent.isEmpty()) {
                 debugInfo.put("currentContentTitle", currentContent.get(0).getTitle());
@@ -334,8 +419,8 @@ public class ContentScheduleController {
             debugInfo.put("allSchedules", scheduleDetails);
             
             return ResponseEntity.ok(debugInfo);
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body("Invalid TV name: " + tvName);
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error: " + e.getMessage());
         }
     }
 }

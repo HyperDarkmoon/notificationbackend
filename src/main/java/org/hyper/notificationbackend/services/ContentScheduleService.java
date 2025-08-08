@@ -2,6 +2,7 @@ package org.hyper.notificationbackend.services;
 
 import org.hyper.notificationbackend.models.ContentSchedule;
 import org.hyper.notificationbackend.models.TimeSchedule;
+import org.hyper.notificationbackend.models.TV;
 import org.hyper.notificationbackend.models.TVEnum;
 import org.hyper.notificationbackend.repositories.ContentScheduleRepository;
 import org.hyper.notificationbackend.repositories.TimeScheduleRepository;
@@ -24,6 +25,33 @@ public class ContentScheduleService {
     
     @Autowired
     private TimeScheduleRepository timeScheduleRepository;
+    
+    @Autowired
+    private TVService tvService;
+    
+    // Helper method to convert TV names to TV entities
+    private Set<TV> convertTVNamesToEntities(Set<String> tvNames) {
+        return tvNames.stream()
+                .map(name -> tvService.getActiveTVByName(name))
+                .filter(Optional::isPresent)
+                .map(Optional::get)
+                .collect(Collectors.toSet());
+    }
+    
+    // Helper method to convert TVEnum to TV entity (for backward compatibility)
+    private Optional<TV> convertTVEnumToEntity(TVEnum tvEnum) {
+        return tvService.getActiveTVByName(tvEnum.name());
+    }
+    
+    // Helper method to convert TV entity to TVEnum (for backward compatibility)
+    private TVEnum convertTVEntityToEnum(TV tv) {
+        try {
+            return TVEnum.valueOf(tv.getName());
+        } catch (IllegalArgumentException e) {
+            // If TV name doesn't match any enum value, default to TV1
+            return TVEnum.TV1;
+        }
+    }
     
     // Convert DTO to entity with multiple time schedules support
         public ContentSchedule convertFromRequest(ContentScheduleRequest request) {
@@ -52,9 +80,7 @@ public class ContentScheduleService {
         
         // Convert target TVs
         if (request.getTargetTVs() != null) {
-            Set<TVEnum> targetTVs = request.getTargetTVs().stream()
-                .map(TVEnum::valueOf)
-                .collect(Collectors.toSet());
+            Set<TV> targetTVs = convertTVNamesToEntities(request.getTargetTVs());
             contentSchedule.setTargetTVs(targetTVs);
         }
         
@@ -237,8 +263,17 @@ public class ContentScheduleService {
         return contentScheduleRepository.findImmediateSchedules();
     }
     
-    // Get schedules for a specific TV (prioritized by immediate vs scheduled)
-    public List<ContentSchedule> getSchedulesForTV(TVEnum tv) {
+    // Get schedules for a specific TV (prioritized by immediate vs scheduled) - TVEnum version for backward compatibility
+    public List<ContentSchedule> getSchedulesForTV(TVEnum tvEnum) {
+        Optional<TV> tvOpt = convertTVEnumToEntity(tvEnum);
+        if (tvOpt.isEmpty()) {
+            return new ArrayList<>();
+        }
+        return getSchedulesForTV(tvOpt.get());
+    }
+    
+    // Get schedules for a specific TV (prioritized by immediate vs scheduled) - TV entity version
+    public List<ContentSchedule> getSchedulesForTV(TV tv) {
         LocalDateTime now = LocalDateTime.now();
         List<ContentSchedule> result = new ArrayList<>();
         
@@ -272,8 +307,17 @@ public class ContentScheduleService {
         return result;
     }
     
-    // Get upcoming schedules for a specific TV
-    public List<ContentSchedule> getUpcomingSchedulesForTV(TVEnum tv) {
+    // Get upcoming schedules for a specific TV - TVEnum version for backward compatibility
+    public List<ContentSchedule> getUpcomingSchedulesForTV(TVEnum tvEnum) {
+        Optional<TV> tvOpt = convertTVEnumToEntity(tvEnum);
+        if (tvOpt.isEmpty()) {
+            return new ArrayList<>();
+        }
+        return getUpcomingSchedulesForTV(tvOpt.get());
+    }
+    
+    // Get upcoming schedules for a specific TV - TV entity version
+    public List<ContentSchedule> getUpcomingSchedulesForTV(TV tv) {
         LocalDateTime now = LocalDateTime.now();
         List<ContentSchedule> upcomingSchedules = new ArrayList<>();
         
@@ -334,20 +378,20 @@ public class ContentScheduleService {
     // Handle content override logic for new schedules
     private void handleContentOverride(ContentSchedule newSchedule) {
         // For each target TV, handle existing content
-        for (TVEnum tv : newSchedule.getTargetTVs()) {
+        for (TV tv : newSchedule.getTargetTVs()) {
             handleTVContentOverride(tv, newSchedule);
         }
     }
     
     // Handle content override for a specific TV
-    private void handleTVContentOverride(TVEnum tv, ContentSchedule newSchedule) {
-        System.out.println("DEBUG: handleTVContentOverride called for TV " + tv + " with schedule: " + newSchedule.getTitle());
+    private void handleTVContentOverride(TV tv, ContentSchedule newSchedule) {
+        System.out.println("DEBUG: handleTVContentOverride called for TV " + tv.getName() + " with schedule: " + newSchedule.getTitle());
         System.out.println("DEBUG: newSchedule.isImmediate(): " + newSchedule.isImmediate());
         System.out.println("DEBUG: newSchedule.isDailySchedule(): " + newSchedule.isDailySchedule());
         
         // Get all active immediate content for this TV
         List<ContentSchedule> existingImmediate = contentScheduleRepository.findImmediateForTV(tv);
-        System.out.println("DEBUG: Found " + existingImmediate.size() + " existing immediate content for TV " + tv);
+        System.out.println("DEBUG: Found " + existingImmediate.size() + " existing immediate content for TV " + tv.getName());
         
         for (ContentSchedule existing : existingImmediate) {
             System.out.println("DEBUG: Checking existing content: " + existing.getTitle() + " (active: " + existing.isActive() + ")");
@@ -453,30 +497,30 @@ public class ContentScheduleService {
         System.out.println("DEBUG: Current time for comparison: " + now.toLocalTime());
         
         // Track which TVs have active daily schedules
-        Map<TVEnum, List<ContentSchedule>> activeDailySchedulesByTV = new HashMap<>();
+        Map<TV, List<ContentSchedule>> activeDailySchedulesByTV = new HashMap<>();
         
         for (ContentSchedule dailySchedule : allDailySchedules) {
             boolean isCurrentlyInWindow = dailySchedule.isDailyScheduleActive(now);
             System.out.println("DEBUG: Daily schedule '" + dailySchedule.getTitle() + "' (ID: " + dailySchedule.getId() + ") - currently in window: " + isCurrentlyInWindow);
             System.out.println("DEBUG: Schedule window: " + dailySchedule.getDailyStartTime() + " - " + dailySchedule.getDailyEndTime());
-            System.out.println("DEBUG: Target TVs: " + dailySchedule.getTargetTVs());
+            System.out.println("DEBUG: Target TVs: " + dailySchedule.getTargetTVs().stream().map(TV::getName).collect(Collectors.toList()));
             
             if (isCurrentlyInWindow) {
-                for (TVEnum tv : dailySchedule.getTargetTVs()) {
+                for (TV tv : dailySchedule.getTargetTVs()) {
                     activeDailySchedulesByTV.computeIfAbsent(tv, k -> new ArrayList<>()).add(dailySchedule);
-                    System.out.println("DEBUG: Added daily schedule '" + dailySchedule.getTitle() + "' to active list for TV " + tv);
+                    System.out.println("DEBUG: Added daily schedule '" + dailySchedule.getTitle() + "' to active list for TV " + tv.getName());
                 }
             }
         }
         
         // Get all TVs that have daily schedules configured (active or inactive)
-        Set<TVEnum> allTVsWithDailySchedules = new HashSet<>();
+        Set<TV> allTVsWithDailySchedules = new HashSet<>();
         for (ContentSchedule dailySchedule : allDailySchedules) {
             allTVsWithDailySchedules.addAll(dailySchedule.getTargetTVs());
         }
         
         // For each TV, manage immediate content based on daily schedule status
-        for (TVEnum tv : allTVsWithDailySchedules) {
+        for (TV tv : allTVsWithDailySchedules) {
             List<ContentSchedule> activeDailySchedulesForTV = activeDailySchedulesByTV.getOrDefault(tv, new ArrayList<>());
             boolean hasActiveDailySchedule = !activeDailySchedulesForTV.isEmpty();
             
@@ -485,24 +529,24 @@ public class ContentScheduleService {
                 .filter(cs -> cs.isImmediate() && cs.getTargetTVs().contains(tv))
                 .collect(Collectors.toList());
             
-            System.out.println("DEBUG: TV " + tv + " - hasActiveDailySchedule: " + hasActiveDailySchedule + ", found " + allImmediateForTV.size() + " immediate content (active and inactive)");
+            System.out.println("DEBUG: TV " + tv.getName() + " - hasActiveDailySchedule: " + hasActiveDailySchedule + ", found " + allImmediateForTV.size() + " immediate content (active and inactive)");
             
             for (ContentSchedule existingContent : allImmediateForTV) {
                 System.out.println("DEBUG: Checking immediate content '" + existingContent.getTitle() + "' (ID: " + existingContent.getId() + ") - isActive: " + existingContent.isActive());
                 
                 if (hasActiveDailySchedule && existingContent.isActive()) {
                     // Daily schedule is active - temporarily disable immediate content for this TV
-                    System.out.println("DEBUG: DISABLING immediate content '" + existingContent.getTitle() + "' (ID: " + existingContent.getId() + ") for TV " + tv + " due to active daily schedule(s): " + 
+                    System.out.println("DEBUG: DISABLING immediate content '" + existingContent.getTitle() + "' (ID: " + existingContent.getId() + ") for TV " + tv.getName() + " due to active daily schedule(s): " + 
                         activeDailySchedulesForTV.stream().map(ContentSchedule::getTitle).collect(Collectors.joining(", ")));
                     existingContent.setActive(false);
                     contentScheduleRepository.save(existingContent);
                 } else if (!hasActiveDailySchedule && !existingContent.isActive()) {
                     // No daily schedules are active for this TV - restore immediate content
-                    System.out.println("DEBUG: RESTORING immediate content '" + existingContent.getTitle() + "' (ID: " + existingContent.getId() + ") for TV " + tv + " - no active daily schedules");
+                    System.out.println("DEBUG: RESTORING immediate content '" + existingContent.getTitle() + "' (ID: " + existingContent.getId() + ") for TV " + tv.getName() + " - no active daily schedules");
                     existingContent.setActive(true);
                     contentScheduleRepository.save(existingContent);
                 } else {
-                    System.out.println("DEBUG: No action needed for immediate content '" + existingContent.getTitle() + "' (ID: " + existingContent.getId() + ") for TV " + tv + 
+                    System.out.println("DEBUG: No action needed for immediate content '" + existingContent.getTitle() + "' (ID: " + existingContent.getId() + ") for TV " + tv.getName() + 
                         " - hasActiveDailySchedule: " + hasActiveDailySchedule + ", isActive: " + existingContent.isActive());
                 }
             }

@@ -10,9 +10,9 @@ public class TVProfileAssignment {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
     
-    @Enumerated(EnumType.STRING)
-    @Column(name = "tv_name", nullable = false)
-    private TVEnum tvName;
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "tv_id", nullable = false)
+    private TV tv;
     
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "profile_id", nullable = false)
@@ -29,9 +29,9 @@ public class TVProfileAssignment {
         this.assignedAt = LocalDateTime.now();
     }
     
-    public TVProfileAssignment(TVEnum tvName, TVProfile profile) {
+    public TVProfileAssignment(TV tv, TVProfile profile) {
         this();
-        this.tvName = tvName;
+        this.tv = tv;
         this.profile = profile;
     }
     
@@ -44,12 +44,12 @@ public class TVProfileAssignment {
         this.id = id;
     }
     
-    public TVEnum getTvName() {
-        return tvName;
+    public TV getTv() {
+        return tv;
     }
     
-    public void setTvName(TVEnum tvName) {
-        this.tvName = tvName;
+    public void setTv(TV tv) {
+        this.tv = tv;
     }
     
     public TVProfile getProfile() {

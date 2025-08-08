@@ -2,6 +2,7 @@ package org.hyper.notificationbackend.services;
 
 import org.hyper.notificationbackend.models.TVProfile;
 import org.hyper.notificationbackend.models.TVProfileAssignment;
+import org.hyper.notificationbackend.models.TV;
 import org.hyper.notificationbackend.models.TVEnum;
 import org.hyper.notificationbackend.repositories.TVProfileAssignmentRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,9 +22,27 @@ public class TVProfileAssignmentService {
     @Autowired
     private TVProfileService profileService;
     
-    // Assign a profile to a TV
+    @Autowired
+    private TVService tvService;
+    
+    // Helper method to convert TVEnum to TV entity (for backward compatibility)
+    private Optional<TV> convertTVEnumToEntity(TVEnum tvEnum) {
+        return tvService.getActiveTVByName(tvEnum.name());
+    }
+    
+    // Assign a profile to a TV - TVEnum version for backward compatibility
     @Transactional
-    public TVProfileAssignment assignProfileToTV(TVEnum tvName, Long profileId) {
+    public TVProfileAssignment assignProfileToTV(TVEnum tvEnum, Long profileId) {
+        Optional<TV> tvOpt = convertTVEnumToEntity(tvEnum);
+        if (tvOpt.isEmpty()) {
+            throw new RuntimeException("TV not found: " + tvEnum.name());
+        }
+        return assignProfileToTV(tvOpt.get(), profileId);
+    }
+    
+    // Assign a profile to a TV - TV entity version
+    @Transactional
+    public TVProfileAssignment assignProfileToTV(TV tv, Long profileId) {
         // Get the profile
         Optional<TVProfile> profile = profileService.getProfileById(profileId);
         if (!profile.isPresent()) {
@@ -31,27 +50,50 @@ public class TVProfileAssignmentService {
         }
         
         // Deactivate any existing assignments for this TV
-        assignmentRepository.deactivateAssignmentsForTV(tvName);
+        assignmentRepository.deactivateAssignmentsForTV(tv);
         
         // Create new assignment
-        TVProfileAssignment assignment = new TVProfileAssignment(tvName, profile.get());
+        TVProfileAssignment assignment = new TVProfileAssignment(tv, profile.get());
         return assignmentRepository.save(assignment);
     }
     
-    // Get current profile assignment for a TV
-    public Optional<TVProfileAssignment> getCurrentAssignmentForTV(TVEnum tvName) {
-        return assignmentRepository.findByTvNameWithProfile(tvName);
+    // Get current profile assignment for a TV - TVEnum version for backward compatibility
+    public Optional<TVProfileAssignment> getCurrentAssignmentForTV(TVEnum tvEnum) {
+        Optional<TV> tvOpt = convertTVEnumToEntity(tvEnum);
+        if (tvOpt.isEmpty()) {
+            return Optional.empty();
+        }
+        return getCurrentAssignmentForTV(tvOpt.get());
     }
     
-    // Get current profile for a TV (just the profile data)
-    public Optional<TVProfile> getCurrentProfileForTV(TVEnum tvName) {
-        Optional<TVProfileAssignment> assignment = getCurrentAssignmentForTV(tvName);
+    // Get current profile assignment for a TV - TV entity version
+    public Optional<TVProfileAssignment> getCurrentAssignmentForTV(TV tv) {
+        return assignmentRepository.findByTvWithProfile(tv);
+    }
+    
+    // Get current profile for a TV (just the profile data) - TVEnum version for backward compatibility
+    public Optional<TVProfile> getCurrentProfileForTV(TVEnum tvEnum) {
+        Optional<TVProfileAssignment> assignment = getCurrentAssignmentForTV(tvEnum);
         return assignment.map(TVProfileAssignment::getProfile);
     }
     
-    // Remove profile assignment from TV
-    public void removeProfileFromTV(TVEnum tvName) {
-        assignmentRepository.deactivateAssignmentsForTV(tvName);
+    // Get current profile for a TV (just the profile data) - TV entity version
+    public Optional<TVProfile> getCurrentProfileForTV(TV tv) {
+        Optional<TVProfileAssignment> assignment = getCurrentAssignmentForTV(tv);
+        return assignment.map(TVProfileAssignment::getProfile);
+    }
+    
+    // Remove profile assignment from TV - TVEnum version for backward compatibility
+    public void removeProfileFromTV(TVEnum tvEnum) {
+        Optional<TV> tvOpt = convertTVEnumToEntity(tvEnum);
+        if (tvOpt.isPresent()) {
+            removeProfileFromTV(tvOpt.get());
+        }
+    }
+    
+    // Remove profile assignment from TV - TV entity version
+    public void removeProfileFromTV(TV tv) {
+        assignmentRepository.deactivateAssignmentsForTV(tv);
     }
     
     // Get all active assignments

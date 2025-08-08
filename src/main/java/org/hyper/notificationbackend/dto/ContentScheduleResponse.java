@@ -1,8 +1,7 @@
 package org.hyper.notificationbackend.dto;
 
 import org.hyper.notificationbackend.models.ContentSchedule;
-import org.hyper.notificationbackend.models.TVEnum;
-
+import org.hyper.notificationbackend.models.TV;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Set;
@@ -74,7 +73,7 @@ public class ContentScheduleResponse {
         // Convert target TVs to strings
         if (entity.getTargetTVs() != null) {
             response.setTargetTVs(entity.getTargetTVs().stream()
-                .map(TVEnum::name)
+                .map(TV::getName)
                 .collect(Collectors.toSet()));
         }
         

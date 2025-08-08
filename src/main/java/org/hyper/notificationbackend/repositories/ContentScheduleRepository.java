@@ -1,7 +1,7 @@
 package org.hyper.notificationbackend.repositories;
 
 import org.hyper.notificationbackend.models.ContentSchedule;
-import org.hyper.notificationbackend.models.TVEnum;
+import org.hyper.notificationbackend.models.TV;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
@@ -27,20 +27,20 @@ public interface ContentScheduleRepository extends JpaRepository<ContentSchedule
 
     // Find schedules for a specific TV (includes immediate schedules)
     @Query("SELECT c FROM ContentSchedule c JOIN c.targetTVs t WHERE t = ?1 AND c.active = true")
-    List<ContentSchedule> findByTV(TVEnum tv);
+    List<ContentSchedule> findByTV(TV tv);
     
     // Find immediate schedules for a specific TV
     @Query("SELECT c FROM ContentSchedule c JOIN c.targetTVs t WHERE t = ?1 AND c.active = true AND c.immediate = true")
-    List<ContentSchedule> findImmediateForTV(TVEnum tv);
+    List<ContentSchedule> findImmediateForTV(TV tv);
     
     // Find daily scheduled content for a specific TV
     @Query("SELECT c FROM ContentSchedule c JOIN c.targetTVs t WHERE t = ?1 AND c.active = true AND c.dailySchedule = true")
-    List<ContentSchedule> findDailyScheduleForTV(TVEnum tv);
+    List<ContentSchedule> findDailyScheduleForTV(TV tv);
     
     // Find upcoming schedules for a specific TV (deprecated - use TimeScheduleRepository instead)
     @Deprecated
     @Query("SELECT c FROM ContentSchedule c JOIN c.targetTVs t WHERE t = ?1 AND c.active = true AND c.startTime > ?2 ORDER BY c.startTime ASC")
-    List<ContentSchedule> findUpcomingForTV(TVEnum tv, LocalDateTime currentTime);
+    List<ContentSchedule> findUpcomingForTV(TV tv, LocalDateTime currentTime);
     
     // Find the highest priority active content for a specific TV at current time (deprecated - use service layer logic instead)
     @Deprecated
@@ -52,5 +52,5 @@ public interface ContentScheduleRepository extends JpaRepository<ContentSchedule
            "     WHEN c.startTime IS NULL AND c.endTime IS NULL THEN 2 " +
            "     ELSE 3 END ASC, " +
            "c.startTime ASC")
-    List<ContentSchedule> findActiveContentForTVPrioritized(TVEnum tv, LocalDateTime currentTime);
+    List<ContentSchedule> findActiveContentForTVPrioritized(TV tv, LocalDateTime currentTime);
 }

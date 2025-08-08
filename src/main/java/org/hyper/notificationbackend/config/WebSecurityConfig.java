@@ -80,9 +80,21 @@ public class WebSecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/profiles/assignments").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.POST, "/api/profiles/assign").hasRole("ADMIN")
                         .requestMatchers(HttpMethod.DELETE, "/api/profiles/assignments/**").hasRole("ADMIN")
+                        // TV Management endpoints - admin only for CRUD operations
+                        .requestMatchers(HttpMethod.GET, "/api/tvs/active").permitAll() // Public access for frontend TV selection
+                        .requestMatchers(HttpMethod.GET, "/api/tvs/name/**").permitAll() // Public access for TV lookup
+                        .requestMatchers(HttpMethod.GET, "/api/tvs/check/**").permitAll() // Public access for TV status check
+                        .requestMatchers(HttpMethod.POST, "/api/tvs").hasRole("ADMIN") // Admin only for creating TVs
+                        .requestMatchers(HttpMethod.PUT, "/api/tvs/**").hasRole("ADMIN") // Admin only for updating TVs
+                        .requestMatchers(HttpMethod.DELETE, "/api/tvs/**").hasRole("ADMIN") // Admin only for deleting TVs
+                        .requestMatchers(HttpMethod.GET, "/api/tvs").hasRole("ADMIN") // Admin only for listing all TVs
+                        .requestMatchers(HttpMethod.GET, "/api/tvs/**").hasRole("ADMIN") // Admin only for detailed TV info
+                        .requestMatchers(HttpMethod.POST, "/api/tvs/initialize-defaults").hasRole("ADMIN") // Admin only for initialization
+                        .requestMatchers("/api/tvs/search/**").hasRole("ADMIN") // Admin only for TV search
+                        // Legacy TV enum endpoints - keep for backward compatibility
+                        .requestMatchers("/api/tv/**").permitAll()
                         // Other admin endpoints
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                        .requestMatchers("/api/tv/**").permitAll()
                         .anyRequest().authenticated())
                 .httpBasic(httpBasic -> {});
 

@@ -4,7 +4,7 @@ import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
@@ -65,12 +65,14 @@ public class ContentSchedule {
     @JsonManagedReference
     private List<TimeSchedule> timeSchedules = new ArrayList<>();
     
-    // Specify which TVs should display this content using the enum
-    @ElementCollection
-    @CollectionTable(name = "content_tv_mapping", joinColumns = @JoinColumn(name = "schedule_id"))
-    @Enumerated(EnumType.STRING)
-    @Column(name = "tv_enum")
-    private Set<TVEnum> targetTVs = EnumSet.noneOf(TVEnum.class);
+    // Specify which TVs should display this content using the TV entity
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+        name = "content_tv_mapping",
+        joinColumns = @JoinColumn(name = "schedule_id"),
+        inverseJoinColumns = @JoinColumn(name = "tv_id")
+    )
+    private Set<TV> targetTVs = new HashSet<>();
     
     public enum ContentType {
         IMAGE_SINGLE,   // Single image
@@ -180,19 +182,19 @@ public class ContentSchedule {
         this.active = active;
     }
     
-    public Set<TVEnum> getTargetTVs() {
+    public Set<TV> getTargetTVs() {
         return targetTVs;
     }
     
-    public void setTargetTVs(Set<TVEnum> targetTVs) {
+    public void setTargetTVs(Set<TV> targetTVs) {
         this.targetTVs = targetTVs;
     }
     
-    public void addTargetTV(TVEnum tv) {
+    public void addTargetTV(TV tv) {
         this.targetTVs.add(tv);
     }
     
-    public void removeTargetTV(TVEnum tv) {
+    public void removeTargetTV(TV tv) {
         this.targetTVs.remove(tv);
     }
     
