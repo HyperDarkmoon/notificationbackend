@@ -5,6 +5,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
+import jakarta.servlet.http.HttpServletRequest;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -15,18 +16,41 @@ import java.util.UUID;
 
 @RestController
 @RequestMapping("/api/content")
-@CrossOrigin(origins = "http://localhost:3000", allowCredentials = "false")
+@CrossOrigin(origins = "*", allowCredentials = "false")
 public class FileUploadController {
 
     @Value("${app.upload.dir:uploads}")
     private String uploadDir;
 
-    @Value("${app.upload.url:http://localhost:8090/uploads}")
-    private String uploadBaseUrl;
+    @Value("${server.port:8090}")
+    private String serverPort;
+
+    @Value("${app.upload.base-url:}")
+    private String customUploadBaseUrl;
+
+    private String getUploadBaseUrl(HttpServletRequest request) {
+        if (customUploadBaseUrl != null && !customUploadBaseUrl.isEmpty()) {
+            return customUploadBaseUrl;
+        }
+        
+        // Build URL dynamically from the request
+        String scheme = request.getScheme();
+        String serverName = request.getServerName();
+        int serverPort = request.getServerPort();
+        
+        String baseUrl;
+        if ((scheme.equals("http") && serverPort == 80) || (scheme.equals("https") && serverPort == 443)) {
+            baseUrl = String.format("%s://%s", scheme, serverName);
+        } else {
+            baseUrl = String.format("%s://%s:%d", scheme, serverName, serverPort);
+        }
+        
+        return baseUrl + "/uploads";
+    }
 
     // Upload a single file and return the URL
     @PostMapping("/upload-file")
-    public ResponseEntity<?> uploadFile(@RequestParam("file") MultipartFile file) {
+    public ResponseEntity<?> uploadFile(@RequestParam("file") MultipartFile file, HttpServletRequest request) {
         try {
             System.out.println("File upload request received: " + file.getOriginalFilename() + " (" + file.getSize() + " bytes)");
             
@@ -74,7 +98,7 @@ public class FileUploadController {
             System.out.println("File saved successfully: " + uniqueFilename);
 
             // Return file URL
-            String fileUrl = uploadBaseUrl + "/" + uniqueFilename;
+            String fileUrl = getUploadBaseUrl(request) + "/" + uniqueFilename;
             System.out.println("File URL: " + fileUrl);
             
             Map<String, Object> response = new HashMap<>();
@@ -100,7 +124,7 @@ public class FileUploadController {
 
     // Upload multiple files
     @PostMapping("/upload-files")
-    public ResponseEntity<?> uploadFiles(@RequestParam("files") MultipartFile[] files) {
+    public ResponseEntity<?> uploadFiles(@RequestParam("files") MultipartFile[] files, HttpServletRequest request) {
         try {
             if (files.length == 0) {
                 return ResponseEntity.badRequest().body("Error: No files provided");
@@ -114,7 +138,7 @@ public class FileUploadController {
             for (MultipartFile file : files) {
                 if (!file.isEmpty()) {
                     // Use the single file upload logic
-                    ResponseEntity<?> singleResponse = uploadFile(file);
+                    ResponseEntity<?> singleResponse = uploadFile(file, request);
                     if (singleResponse.getStatusCode().is2xxSuccessful()) {
                         filesList.add(singleResponse.getBody());
                     } else {
