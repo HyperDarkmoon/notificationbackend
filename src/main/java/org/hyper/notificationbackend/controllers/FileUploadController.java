@@ -106,16 +106,17 @@ public class FileUploadController {
                 return ResponseEntity.badRequest().body("Error: No files provided");
             }
 
+            java.util.List<Object> filesList = new java.util.ArrayList<>();
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
-            response.put("files", new java.util.ArrayList<>());
+            response.put("files", filesList);
 
             for (MultipartFile file : files) {
                 if (!file.isEmpty()) {
                     // Use the single file upload logic
                     ResponseEntity<?> singleResponse = uploadFile(file);
                     if (singleResponse.getStatusCode().is2xxSuccessful()) {
-                        ((java.util.List<Object>) response.get("files")).add(singleResponse.getBody());
+                        filesList.add(singleResponse.getBody());
                     } else {
                         return singleResponse; // Return error if any file fails
                     }
