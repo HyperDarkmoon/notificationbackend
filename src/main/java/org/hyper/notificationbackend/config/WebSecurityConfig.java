@@ -106,15 +106,17 @@ public class WebSecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        // Allow both localhost and network IP for development and testing
-        configuration.setAllowedOrigins(List.of(
-            "http://localhost:3000",           // For local development
-            "http://172.16.1.12:3000",
-            "http://10.41.15.227:3000",         // For network access
-            "http://127.0.0.1:3000"            // Alternative localhost
-        )); 
-        // Alternative: Use setAllowedOriginPatterns for more flexible matching
-        // configuration.setAllowedOriginPatterns(List.of("http://172.16.1.*:3000", "http://localhost:*", "http://127.0.0.1:*"));
+        // Use allowedOriginPatterns for more flexible matching
+        configuration.setAllowedOriginPatterns(List.of(
+            "http://localhost:*",              // Any port on localhost
+            "https://localhost:*",             // HTTPS localhost
+            "http://127.0.0.1:*",              // Any port on 127.0.0.1
+            "https://127.0.0.1:*",             // HTTPS 127.0.0.1
+            "http://10.41.15.*:*",             // Any IP in 10.41.15.x subnet with any port
+            "https://10.41.15.*:*",            // HTTPS for the same subnet
+            "http://172.16.1.*:*",             // Any IP in 172.16.1.x subnet with any port
+            "https://172.16.1.*:*"             // HTTPS for the same subnet
+        ));
         configuration.setAllowCredentials(true); // Set to true for authenticated requests
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*")); // Allow all headers for file uploads
