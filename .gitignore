@@ -30,6 +30,6 @@ replay_pid*
 # Gradle files
 .idea/
 build/
-./gradle
+.gradle/
 out/
 uploads/
