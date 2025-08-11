@@ -109,7 +109,8 @@ public class WebSecurityConfig {
         // Allow both localhost and network IP for development and testing
         configuration.setAllowedOrigins(List.of(
             "http://localhost:3000",           // For local development
-            "http://172.16.1.12:3000",         // For network access
+            "http://172.16.1.12:3000",
+            "http://10.41.15.227:3000",         // For network access
             "http://127.0.0.1:3000"            // Alternative localhost
         )); 
         // Alternative: Use setAllowedOriginPatterns for more flexible matching
