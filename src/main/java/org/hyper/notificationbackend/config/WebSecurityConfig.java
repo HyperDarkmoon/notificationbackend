@@ -50,6 +50,8 @@ public class WebSecurityConfig {
                 .authorizeHttpRequests(authz -> authz
                         // Allow preflight requests
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                        // Device testing - place early to avoid conflicts
+                        .requestMatchers("/api/device-data").permitAll()
                         // Auth endpoints
                         .requestMatchers("/api/auth/**").permitAll()
                         // Static file access - allow public access to uploaded files
