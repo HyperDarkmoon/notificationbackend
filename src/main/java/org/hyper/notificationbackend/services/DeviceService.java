@@ -208,8 +208,9 @@ public class DeviceService {
             
             // Use JavaScript to clear and set the value to avoid stale element issues
             ((JavascriptExecutor) driver).executeScript("arguments[0].value = '';", usernameInput);
-            ((JavascriptExecutor) driver).executeScript("arguments[0].value = 'Affichage';", usernameInput);
-            System.out.println("Username 'Affichage' entered successfully using JavaScript");
+            String niagaraUsername = System.getenv("NIAGARA_USERNAME");
+            ((JavascriptExecutor) driver).executeScript("arguments[0].value = arguments[1];", usernameInput, niagaraUsername);
+            System.out.println("Username '" + niagaraUsername + "' entered successfully using JavaScript");
             
             System.out.println("Step 3: Clicking submit button for username");
             WebElement submitButton = driver.findElement(By.id("login-submit"));
@@ -244,10 +245,11 @@ public class DeviceService {
                     System.out.println("Found both username and password fields on login page - trying direct login");
                     
                     directUsernameInput.clear();
-                    directUsernameInput.sendKeys("Affichage");
+                    directUsernameInput.sendKeys(niagaraUsername);
                     
                     directPasswordInput.clear();
-                    directPasswordInput.sendKeys("Azerty123$");
+                    String niagaraPassword = System.getenv("NIAGARA_PASSWORD");
+                    directPasswordInput.sendKeys(niagaraPassword);
                     
                     WebElement directLoginButton = driver.findElement(By.id("login-submit"));
                     directLoginButton.click();
@@ -280,7 +282,8 @@ public class DeviceService {
             // Clear and enter password
             passwordInput.clear();
             Thread.sleep(500);
-            passwordInput.sendKeys("Azerty123$");
+            String niagaraPassword = System.getenv("NIAGARA_PASSWORD");
+            passwordInput.sendKeys(niagaraPassword);
             System.out.println("Password entered successfully");
             
             // Step 5: Submit login form (re-find button to avoid stale reference)
