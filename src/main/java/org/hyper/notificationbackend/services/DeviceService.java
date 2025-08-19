@@ -209,6 +209,12 @@ public class DeviceService {
             // Use JavaScript to clear and set the value to avoid stale element issues
             ((JavascriptExecutor) driver).executeScript("arguments[0].value = '';", usernameInput);
             String niagaraUsername = System.getenv("NIAGARA_USERNAME");
+            if (niagaraUsername == null || niagaraUsername.isEmpty()) {
+                niagaraUsername = System.getProperty("NIAGARA_USERNAME");
+            }
+            if (niagaraUsername == null || niagaraUsername.isEmpty()) {
+                throw new Exception("NIAGARA_USERNAME environment variable is not set. Please set it in your .env file.");
+            }
             ((JavascriptExecutor) driver).executeScript("arguments[0].value = arguments[1];", usernameInput, niagaraUsername);
             System.out.println("Username '" + niagaraUsername + "' entered successfully using JavaScript");
             
@@ -225,7 +231,7 @@ public class DeviceService {
             // If we get auth=fail immediately, let's try different approaches
             if (currentUrl.contains("auth=fail")) {
                 System.err.println("===== IMMEDIATE AUTH FAILURE DETECTED =====");
-                System.err.println("The username 'Affichage' is being rejected immediately.");
+                System.err.println("The username is being rejected immediately.");
                 System.err.println("Let's try accessing the direct login page instead...");
                 
                 // Try accessing the main login page directly
@@ -249,6 +255,12 @@ public class DeviceService {
                     
                     directPasswordInput.clear();
                     String niagaraPassword = System.getenv("NIAGARA_PASSWORD");
+                    if (niagaraPassword == null || niagaraPassword.isEmpty()) {
+                        niagaraPassword = System.getProperty("NIAGARA_PASSWORD");
+                    }
+                    if (niagaraPassword == null || niagaraPassword.isEmpty()) {
+                        throw new Exception("NIAGARA_PASSWORD environment variable is not set. Please set it in your .env file.");
+                    }
                     directPasswordInput.sendKeys(niagaraPassword);
                     
                     WebElement directLoginButton = driver.findElement(By.id("login-submit"));
@@ -283,6 +295,12 @@ public class DeviceService {
             passwordInput.clear();
             Thread.sleep(500);
             String niagaraPassword = System.getenv("NIAGARA_PASSWORD");
+            if (niagaraPassword == null || niagaraPassword.isEmpty()) {
+                niagaraPassword = System.getProperty("NIAGARA_PASSWORD");
+            }
+            if (niagaraPassword == null || niagaraPassword.isEmpty()) {
+                throw new Exception("NIAGARA_PASSWORD environment variable is not set. Please set it in your .env file.");
+            }
             passwordInput.sendKeys(niagaraPassword);
             System.out.println("Password entered successfully");
             
